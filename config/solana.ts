@@ -22,9 +22,22 @@ export const SOLANA_RPC_ENDPOINTS = {
 // Default RPC endpoint based on current network
 export const DEFAULT_RPC_ENDPOINT = SOLANA_RPC_ENDPOINTS[CURRENT_NETWORK]
 
-// USDT token addresses
+// USDC token addresses
+export const USDC_TOKEN_ADDRESS = {
+  // Use environment variable for mainnet USDC address if provided, otherwise use the official USDC address
+  mainnet: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  // For devnet, we'll use a mock token address or the official USDC devnet address if available
+  devnet: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
+  // For testnet, we'll use the same mock token address
+  testnet: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
+}
+
+// Default USDC token address based on current network
+export const DEFAULT_USDC_TOKEN_ADDRESS = USDC_TOKEN_ADDRESS[CURRENT_NETWORK]
+
+// Add the USDT token addresses after the USDC token addresses
 export const USDT_TOKEN_ADDRESS = {
-  // Use environment variable for mainnet USDT address if provided
+  // Use environment variable for mainnet USDT address if provided, otherwise use a default address
   mainnet: new PublicKey(process.env.NEXT_PUBLIC_USDT_MINT_ADDRESS || "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
   // For devnet, we'll use a mock token address
   devnet: new PublicKey(process.env.NEXT_PUBLIC_USDT_MINT_ADDRESS || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
@@ -40,15 +53,15 @@ export const PLATFORM_WALLET_ADDRESS = new PublicKey(
   process.env.NEXT_PUBLIC_PLATFORM_WALLET_ADDRESS || "7C4jsPZpht42Tw6MjXWF56Q5RQUocjBBmciEjDa8HRtp",
 )
 
-// NFT minting cost in USDT
-export const NFT_MINT_COST_USDT = 10
+// NFT minting cost in USDC
+export const NFT_MINT_COST_USDC = 10
 
 // NFT metadata
 export const NFT_METADATA = {
   name: "RewardNFT Mint Pass",
   symbol: "RNFT",
   description: "Mint and earn with RewardNFT. This is your gateway to quests, referrals, and rewards.",
-  image: "https://quicknode.quicknode-ipfs.com/ipfs/QmWrmCfPm6L85p1o8KMc9WZCsdwsgW89n37nQMJ6UCVYNW",
+  image: "/placeholder.svg?key=ascgd",
   attributes: [],
 }
 

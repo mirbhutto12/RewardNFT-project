@@ -1,221 +1,164 @@
 "use client"
 
 import { useState } from "react"
+import { useWallet } from "@/contexts/wallet-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { useToast } from "@/components/ui/use-toast"
-import { useWallet } from "@/contexts/wallet-context"
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
-import { MintNFTButton } from "./mint-nft-button"
+import Image from "next/image"
+import { NFT_MINT_COST_USDC, DEFAULT_USDC_TOKEN_ADDRESS, PLATFORM_WALLET_ADDRESS } from "@/config/solana"
+import { createTokenTransferTransaction } from "@/utils/token"
+import { toast } from "@/components/ui/use-toast"
 
-export function SimplifiedNFTMinting() {
-  const { toast } = useToast()
-  const { connected, publicKey } = useWallet()
-  const [minting, setMinting] = useState(false)
-  const [mintingStep, setMintingStep] = useState(0)
-  const [progress, setProgress] = useState(0)
-  const [mintingComplete, setMintingComplete] = useState(false)
-  const [mintingError, setMintingError] = useState<string | null>(null)
-  const [transactionSignature, setTransactionSignature] = useState<string | null>(null)
+interface SimplifiedNftMintingProps {
+  onSuccess?: (signature: string) => void
+}
 
-  // Simulate the minting process
+export function SimplifiedNftMinting({ onSuccess }: SimplifiedNftMintingProps) {
+  const { publicKey, connected, connection, signAndSendTransaction, usdcBalance } = useWallet()
+  const [status, setStatus] = useState<"idle" | "paying" | "minting" | "success" | "error">("idle")
+  const [error, setError] = useState<string | null>(null)
+  const [txSignature, setTxSignature] = useState<string | null>(null)
+
   const handleMint = async () => {
     if (!connected || !publicKey) {
+      toast({
+        title: "Wallet not connected",
+        description: "Please connect your wallet to mint an NFT",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!usdcBalance || usdcBalance < NFT_MINT_COST_USDC) {
+      toast({
+        title: "Insufficient USDC balance",
+        description: `You need at least ${NFT_MINT_COST_USDC} USDC to mint an NFT`,
+        variant: "destructive",
+      })
       return
     }
 
     try {
-      setMinting(true)
-      setMintingError(null)
-      setMintingStep(1)
-      setProgress(10)
+      // Step 1: Pay with USDC
+      setStatus("paying")
+      setError(null)
 
-      // Step 1: Prepare transaction
-      await simulateStep("Preparing transaction...", 30, 1000)
-
-      // Step 2: Sign transaction
-      setMintingStep(2)
-      await simulateStep("Signing transaction...", 50, 1500)
-
-      // Step 3: Send transaction
-      setMintingStep(3)
-      await simulateStep("Sending transaction to network...", 70, 2000)
-
-      // Step 4: Confirm transaction
-      setMintingStep(4)
-      await simulateStep("Confirming transaction...", 90, 2500)
-
-      // Complete
-      setProgress(100)
-      setMintingStep(5)
-      setMintingComplete(true)
-      setTransactionSignature(
-        "5KtPn1LGuxhFE5FzJTzMZ4VRZjEcAqxTKNxzJgJTGCnPHE7UVdXvKNu9Dkf9PzRHZj3qXA7jYLHxHhxNMPNPSPjR",
+      // Create a transaction to transfer USDC to the platform wallet
+      const transaction = await createTokenTransferTransaction(
+        connection,
+        publicKey,
+        PLATFORM_WALLET_ADDRESS,
+        DEFAULT_USDC_TOKEN_ADDRESS,
+        NFT_MINT_COST_USDC,
       )
 
+      // Sign and send the transaction
+      const signature = await signAndSendTransaction(transaction)
+      setTxSignature(signature)
+
+      // Step 2: Mint the NFT (simulated)
+      setStatus("minting")
+
+      // Simulate NFT minting process with a delay
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      // Success
+      setStatus("success")
+
+      // Call the onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess(signature)
+      }
+
       toast({
-        title: "NFT Minted Successfully!",
-        description: "Your NFT has been minted and added to your wallet.",
+        title: "NFT Minted Successfully",
+        description: "Your NFT has been minted and added to your wallet",
       })
-    } catch (error: any) {
-      console.error("Minting error:", error)
-      setMintingError(error.message || "Failed to mint NFT")
+    } catch (err: any) {
+      console.error("Minting error:", err)
+      setStatus("error")
+      setError(err.message || "An error occurred during the minting process")
       toast({
-        variant: "destructive",
         title: "Minting Failed",
-        description: error.message || "There was an error minting your NFT.",
+        description: err.message || "An error occurred during the minting process",
+        variant: "destructive",
       })
-    } finally {
-      setMinting(false)
     }
   }
 
-  const simulateStep = async (message: string, targetProgress: number, delay: number) => {
-    console.log(message)
-    return new Promise<void>((resolve) => {
-      const startProgress = progress
-      const progressDiff = targetProgress - startProgress
-      const startTime = Date.now()
-      const endTime = startTime + delay
-
-      const updateProgress = () => {
-        const now = Date.now()
-        const elapsed = now - startTime
-        const percentage = Math.min(elapsed / delay, 1)
-        const currentProgress = startProgress + progressDiff * percentage
-        setProgress(currentProgress)
-
-        if (now < endTime) {
-          requestAnimationFrame(updateProgress)
-        } else {
-          setProgress(targetProgress)
-          resolve()
-        }
-      }
-
-      requestAnimationFrame(updateProgress)
-    })
-  }
-
-  const resetMinting = () => {
-    setMintingComplete(false)
-    setMintingError(null)
-    setMintingStep(0)
-    setProgress(0)
-    setTransactionSignature(null)
-  }
-
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardContent className="pt-6">
-        <div className="space-y-6">
-          <div className="text-center">
-            <h3 className="text-2xl font-bold mb-2">Mint Your Reward NFT</h3>
-            <p className="text-muted-foreground">Mint a unique NFT to join our rewards program and start earning.</p>
+    <div className="flex flex-col items-center">
+      <Card className="w-full max-w-md bg-white/5 backdrop-blur-sm border-white/10">
+        <CardContent className="p-6">
+          <div className="relative aspect-square w-full mb-4 bg-black/20 rounded-lg overflow-hidden">
+            <Image src="/nft-reward-token.png" alt="NFT Preview" fill className="object-cover" />
           </div>
 
-          {!minting && !mintingComplete && !mintingError && (
-            <div className="space-y-4">
-              <div className="bg-muted p-4 rounded-lg text-center">
-                <p className="font-medium">Price: 10 USDT</p>
-                <p className="text-sm text-muted-foreground mt-1">Plus network fees</p>
-              </div>
-
-              <MintNFTButton onClick={handleMint} className="w-full" />
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-xl font-bold text-white">Reward NFT Mint Pass</h3>
+              <p className="text-white/70">Mint price: {NFT_MINT_COST_USDC} USDC</p>
             </div>
-          )}
 
-          {(minting || mintingComplete || mintingError) && (
-            <div className="space-y-4">
-              <Progress value={progress} className="h-2 w-full" />
+            {status === "idle" && (
+              <Button
+                onClick={handleMint}
+                disabled={!connected || !usdcBalance || usdcBalance < NFT_MINT_COST_USDC}
+                className="w-full"
+              >
+                {!connected
+                  ? "Connect Wallet to Mint"
+                  : !usdcBalance || usdcBalance < NFT_MINT_COST_USDC
+                    ? `Insufficient USDC (${usdcBalance || 0} USDC)`
+                    : "Mint NFT"}
+              </Button>
+            )}
 
-              <div className="space-y-2">
-                <div className={`flex items-center ${mintingStep >= 1 ? "text-primary" : "text-muted-foreground"}`}>
-                  {mintingStep > 1 ? (
-                    <CheckCircle2 className="mr-2 h-5 w-5" />
-                  ) : mintingStep === 1 ? (
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  ) : (
-                    <div className="mr-2 h-5 w-5 rounded-full border border-muted-foreground/30" />
-                  )}
-                  <span>Preparing transaction</span>
-                </div>
-
-                <div className={`flex items-center ${mintingStep >= 2 ? "text-primary" : "text-muted-foreground"}`}>
-                  {mintingStep > 2 ? (
-                    <CheckCircle2 className="mr-2 h-5 w-5" />
-                  ) : mintingStep === 2 ? (
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  ) : (
-                    <div className="mr-2 h-5 w-5 rounded-full border border-muted-foreground/30" />
-                  )}
-                  <span>Signing transaction</span>
-                </div>
-
-                <div className={`flex items-center ${mintingStep >= 3 ? "text-primary" : "text-muted-foreground"}`}>
-                  {mintingStep > 3 ? (
-                    <CheckCircle2 className="mr-2 h-5 w-5" />
-                  ) : mintingStep === 3 ? (
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  ) : (
-                    <div className="mr-2 h-5 w-5 rounded-full border border-muted-foreground/30" />
-                  )}
-                  <span>Sending to network</span>
-                </div>
-
-                <div className={`flex items-center ${mintingStep >= 4 ? "text-primary" : "text-muted-foreground"}`}>
-                  {mintingStep > 4 ? (
-                    <CheckCircle2 className="mr-2 h-5 w-5" />
-                  ) : mintingStep === 4 ? (
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  ) : (
-                    <div className="mr-2 h-5 w-5 rounded-full border border-muted-foreground/30" />
-                  )}
-                  <span>Confirming transaction</span>
-                </div>
+            {status === "paying" && (
+              <div className="flex flex-col items-center gap-2 py-2">
+                <Loader2 className="h-6 w-6 animate-spin text-white" />
+                <p className="text-white/80">Processing USDC payment...</p>
               </div>
+            )}
 
-              {mintingError && (
-                <div className="bg-destructive/10 text-destructive p-4 rounded-lg flex items-start">
-                  <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium">Minting failed</p>
-                    <p className="text-sm">{mintingError}</p>
-                  </div>
-                </div>
-              )}
+            {status === "minting" && (
+              <div className="flex flex-col items-center gap-2 py-2">
+                <Loader2 className="h-6 w-6 animate-spin text-white" />
+                <p className="text-white/80">Minting your NFT...</p>
+              </div>
+            )}
 
-              {mintingComplete && (
-                <div className="bg-primary/10 text-primary p-4 rounded-lg">
-                  <div className="flex items-center">
-                    <CheckCircle2 className="h-5 w-5 mr-2" />
-                    <p className="font-medium">NFT Minted Successfully!</p>
-                  </div>
-                  {transactionSignature && (
-                    <p className="text-xs mt-2 truncate">
-                      Transaction: {transactionSignature.slice(0, 8)}...{transactionSignature.slice(-8)}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-center">
-                {mintingComplete || mintingError ? (
-                  <Button onClick={resetMinting} variant="outline">
-                    {mintingError ? "Try Again" : "Mint Another"}
-                  </Button>
-                ) : (
-                  <Button disabled variant="outline">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Minting in progress...
-                  </Button>
+            {status === "success" && (
+              <div className="flex flex-col items-center gap-2 py-2">
+                <CheckCircle2 className="h-6 w-6 text-green-400" />
+                <p className="text-white/80">NFT minted successfully!</p>
+                {txSignature && (
+                  <a
+                    href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-400 hover:underline"
+                  >
+                    View transaction
+                  </a>
                 )}
               </div>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            )}
+
+            {status === "error" && (
+              <div className="flex flex-col items-center gap-2 py-2">
+                <AlertCircle className="h-6 w-6 text-red-400" />
+                <p className="text-red-400">Minting failed</p>
+                {error && <p className="text-sm text-white/60">{error}</p>}
+                <Button variant="outline" size="sm" onClick={() => setStatus("idle")}>
+                  Try Again
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

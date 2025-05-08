@@ -20,12 +20,35 @@ export function WalletDetection() {
         if (solana?.isPhantom) {
           setHasPhantom(true)
 
-          // Check if on the correct network
+          // Check if on the correct network using a more reliable method
           try {
-            const resp = await solana.request({ method: "getNetwork" })
-            const network = resp?.result?.network || "unknown"
+            // Get network from RPC endpoint
+            let network = "unknown"
+
+            if (solana.connection && solana.connection.rpcEndpoint) {
+              const endpoint = solana.connection.rpcEndpoint.toLowerCase()
+
+              if (endpoint.includes("devnet")) {
+                network = "devnet"
+              } else if (endpoint.includes("testnet")) {
+                network = "testnet"
+              } else if (endpoint.includes("mainnet")) {
+                network = "mainnet-beta"
+              }
+            }
+
             setCurrentNetwork(network)
-            setIsCorrectNetwork(network === CURRENT_NETWORK)
+
+            // Compare with expected network
+            const normalizedExpected = CURRENT_NETWORK.toLowerCase()
+            const normalizedActual = network.toLowerCase()
+
+            // Handle "mainnet-beta" vs "mainnet" case
+            const isMainnetMatch =
+              (normalizedExpected === "mainnet" && normalizedActual.includes("mainnet")) ||
+              (normalizedExpected.includes("mainnet") && normalizedActual === "mainnet")
+
+            setIsCorrectNetwork(normalizedActual === normalizedExpected || isMainnetMatch)
           } catch (error) {
             console.error("Error checking network:", error)
             setIsCorrectNetwork(false)

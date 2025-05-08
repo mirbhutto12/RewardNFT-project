@@ -7,16 +7,19 @@ import { Loader2 } from "lucide-react"
 interface WalletBalanceProps {
   className?: string
   showSol?: boolean
-  showUsdt?: boolean
+  showUsdc?: boolean
+  publicKey?: any
 }
 
-export function WalletBalance({ className = "", showSol = true, showUsdt = true }: WalletBalanceProps) {
-  const { publicKey, connected, solBalance, usdtBalance, refreshBalances } = useWallet()
+export function WalletBalance({ className = "", showSol = true, showUsdc = true, publicKey }: WalletBalanceProps) {
+  const walletContext = useWallet()
+  const { connected, solBalance, usdcBalance, refreshBalances } = walletContext
   const [loading, setLoading] = useState(false)
+  const walletPublicKey = publicKey || walletContext.publicKey
 
   useEffect(() => {
     const fetchBalance = async () => {
-      if (!connected || !publicKey) {
+      if (!connected || !walletPublicKey) {
         return
       }
 
@@ -36,7 +39,7 @@ export function WalletBalance({ className = "", showSol = true, showUsdt = true 
     const intervalId = setInterval(fetchBalance, 30000)
 
     return () => clearInterval(intervalId)
-  }, [publicKey, connected, refreshBalances])
+  }, [walletPublicKey, connected, refreshBalances])
 
   return (
     <div className={`text-white ${className}`}>
@@ -50,8 +53,8 @@ export function WalletBalance({ className = "", showSol = true, showUsdt = true 
       ) : (
         <div className="flex flex-col gap-1">
           {showSol && solBalance !== null && <span>{solBalance.toFixed(4)} SOL</span>}
-          {showUsdt && usdtBalance !== null && <span>{usdtBalance.toFixed(2)} USDT</span>}
-          {solBalance === null && usdtBalance === null && <span className="text-white/60">Error loading balance</span>}
+          {showUsdc && usdcBalance !== null && <span>{usdcBalance.toFixed(2)} USDC</span>}
+          {solBalance === null && usdcBalance === null && <span className="text-white/60">Error loading balance</span>}
         </div>
       )}
     </div>

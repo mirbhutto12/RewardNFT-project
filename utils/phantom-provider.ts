@@ -33,10 +33,50 @@ export const getPhantomProvider = async (retries = 3, delay = 500): Promise<any>
   return getPhantomProvider(retries - 1, delay)
 }
 
+// Detect Phantom provider with a promise-based approach
+export const detectPhantomProvider = (timeout = 3000): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      return reject(new Error("Cannot detect Phantom in non-browser environment"))
+    }
+
+    // If Phantom is already available, resolve immediately
+    if ((window as any).solana?.isPhantom) {
+      return resolve((window as any).solana)
+    }
+
+    // Set a timeout to reject the promise if Phantom isn't detected in time
+    const timeoutId = setTimeout(() => {
+      cleanup()
+      reject(new Error("Timeout: Phantom wallet not detected"))
+    }, timeout)
+
+    // Function to clean up event listeners
+    const cleanup = () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener("load", checkForPhantom)
+      window.removeEventListener("DOMContentLoaded", checkForPhantom)
+    }
+
+    // Function to check for Phantom
+    const checkForPhantom = () => {
+      if ((window as any).solana?.isPhantom) {
+        cleanup()
+        resolve((window as any).solana)
+      }
+    }
+
+    // Check immediately and also on window load
+    checkForPhantom()
+    window.addEventListener("load", checkForPhantom)
+    window.addEventListener("DOMContentLoaded", checkForPhantom)
+  })
+}
+
 // Check if we're on the correct Solana network
 export const checkSolanaNetwork = async (
   provider: any,
-  expectedNetwork: SolanaNetwork,
+  expectedNetwork?: SolanaNetwork,
 ): Promise<{ isCorrectNetwork: boolean; network: string }> => {
   try {
     // Check if provider is connected
@@ -84,6 +124,14 @@ export const checkSolanaNetwork = async (
       } catch (connectError) {
         console.log("Connection check failed:", connectError)
         // Continue with unknown network
+      }
+    }
+
+    // If no expected network is provided, just return the current network
+    if (!expectedNetwork) {
+      return {
+        isCorrectNetwork: true,
+        network,
       }
     }
 

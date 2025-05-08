@@ -1,103 +1,119 @@
 "use client"
 
-import { useState } from "react"
-import { useWallet } from "@/contexts/wallet-context"
-import { WalletBalance } from "@/components/wallet-balance"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Copy, Check, ExternalLink, RefreshCw } from "lucide-react"
+import { useWallet } from "@/contexts/wallet-context"
+import { WalletConnectButton } from "@/components/wallet-connect-button"
+import { Copy, ExternalLink } from "lucide-react"
+import { useState } from "react"
 import { toast } from "@/components/ui/use-toast"
-import { NetworkIndicator } from "@/components/network-indicator"
+import Image from "next/image"
 
 export function ProfileWalletInfo() {
-  const { publicKey, connected, refreshBalances, network, explorerUrl } = useWallet()
+  const { connected, publicKey, solBalance, usdcBalance, currentWallet } = useWallet()
   const [copied, setCopied] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
-
-  if (!connected || !publicKey) {
-    return (
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6">
-        <h3 className="text-xl font-bold text-white mb-4">Wallet Information</h3>
-        <p className="text-white/80">Connect your wallet to view your information</p>
-      </div>
-    )
-  }
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(publicKey.toString())
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-    toast({
-      title: "Address Copied",
-      description: "Wallet address copied to clipboard",
-    })
-  }
-
-  const openExplorer = () => {
-    window.open(`${explorerUrl}/address/${publicKey.toString()}`, "_blank")
-  }
-
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    try {
-      await refreshBalances()
+    if (publicKey) {
+      navigator.clipboard.writeText(publicKey.toString())
+      setCopied(true)
       toast({
-        title: "Balances Updated",
-        description: "Your wallet balances have been refreshed",
+        title: "Address Copied",
+        description: "Wallet address copied to clipboard",
       })
-    } catch (error) {
-      console.error("Error refreshing balances:", error)
-    } finally {
-      setRefreshing(false)
+      setTimeout(() => setCopied(false), 2000)
     }
   }
 
+  const getWalletIcon = () => {
+    if (!currentWallet) return null
+
+    if (currentWallet === "Phantom") {
+      return "/images/phantom-icon.png"
+    } else if (currentWallet === "Solflare") {
+      return "/images/solflare-icon.png"
+    }
+
+    return null
+  }
+
   return (
-    <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold text-white">Wallet Information</h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/10"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-          <span className="sr-only">Refresh balances</span>
-        </Button>
-      </div>
+    <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+      <CardHeader>
+        <CardTitle className="text-white">Wallet</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {connected && publicKey ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              {getWalletIcon() && (
+                <div className="relative h-5 w-5">
+                  <Image
+                    src={getWalletIcon()! || "/placeholder.svg"}
+                    alt={currentWallet!}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+              )}
+              <span className="text-white font-medium">{currentWallet}</span>
+            </div>
 
-      <div className="space-y-4">
-        <div>
-          <p className="text-white/60 text-sm mb-1">Connected Address</p>
-          <div className="flex items-center gap-2">
-            <p className="text-white font-mono bg-white/10 rounded p-2 text-sm truncate flex-1">
-              {publicKey.toString()}
-            </p>
-            <Button variant="ghost" size="sm" onClick={handleCopy} className="h-9 w-9 p-0">
-              {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-white/60" />}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={openExplorer} className="h-9 w-9 p-0">
-              <ExternalLink className="h-4 w-4 text-white/60" />
-            </Button>
+            <div className="flex items-center justify-between bg-white/5 p-2 rounded-md">
+              <span className="text-white/70 text-sm truncate">
+                {publicKey.toString().slice(0, 6)}...{publicKey.toString().slice(-4)}
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-white/70 hover:text-white hover:bg-white/10"
+                  onClick={handleCopy}
+                >
+                  <Copy className="h-4 w-4" />
+                  <span className="sr-only">Copy address</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-white/70 hover:text-white hover:bg-white/10"
+                  asChild
+                >
+                  <a
+                    href={`https://explorer.solana.com/address/${publicKey.toString()}?cluster=devnet`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="sr-only">View on explorer</span>
+                  </a>
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-white/60">SOL Balance</span>
+                <span className="font-medium text-white">{solBalance.toFixed(4)} SOL</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/60">USDC Balance</span>
+                <span className="font-medium text-white">{usdcBalance.toFixed(2)} USDC</span>
+              </div>
+            </div>
+
+            <WalletConnectButton
+              variant="outline"
+              className="w-full mt-2 border-white/20 text-white hover:bg-white/10"
+            />
           </div>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <p className="text-white/60">SOL Balance</p>
-          <WalletBalance className="font-medium" showUsdt={false} />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <p className="text-white/60">USDT Balance</p>
-          <WalletBalance className="font-medium" showSol={false} />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <p className="text-white/60">Network</p>
-          <NetworkIndicator />
-        </div>
-      </div>
-    </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-4 space-y-4">
+            <p className="text-white/60 text-center">Connect your wallet to view your balance and NFTs</p>
+            <WalletConnectButton />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

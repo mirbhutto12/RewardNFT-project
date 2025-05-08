@@ -5,9 +5,23 @@ import "./globals.css"
 import { Toaster } from "@/components/ui/toaster"
 import { WalletProvider } from "@/contexts/wallet-context"
 import { ThemeProvider } from "@/components/theme-provider"
-import { WalletDebug } from "@/components/wallet-debug" // Add this import
+import dynamic from "next/dynamic"
+import { SecureWalletProvider } from "@/contexts/secure-wallet-context"
 
 const inter = Inter({ subsets: ["latin"] })
+
+// Dynamically import components that aren't needed for initial render
+const MobileBottomNav = dynamic(
+  () => import("@/components/mobile-bottom-nav").then((mod) => ({ default: mod.MobileBottomNav })),
+  {
+    ssr: false,
+    loading: () => <div className="h-16" />,
+  },
+)
+
+const WalletDebug = dynamic(() => import("@/components/wallet-debug").then((mod) => ({ default: mod.WalletDebug })), {
+  ssr: false,
+})
 
 export const metadata: Metadata = {
   title: "Reward NFT Platform | Mint, Refer, Earn",
@@ -25,9 +39,12 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark">
           <WalletProvider>
-            {children}
-            <Toaster />
-            {process.env.NODE_ENV === "development" && <WalletDebug />} {/* Only show in development */}
+            <SecureWalletProvider>
+              {children}
+              <MobileBottomNav />
+              <Toaster />
+              {process.env.NODE_ENV === "development" && <WalletDebug />}
+            </SecureWalletProvider>
           </WalletProvider>
         </ThemeProvider>
       </body>

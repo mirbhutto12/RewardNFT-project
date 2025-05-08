@@ -1,20 +1,16 @@
 import { Gift, Award, Users, Disc } from "lucide-react"
 
-interface Activity {
-  id: number
+interface ActivityItemProps {
   type: string
   title: string
-  date: string
   description: string
+  timestamp?: string
+  date?: string
 }
 
-interface ActivityItemProps {
-  activity: Activity
-}
-
-export function ActivityItem({ activity }: ActivityItemProps) {
+export function ActivityItem({ type, title, description, timestamp, date }: ActivityItemProps) {
   const getIcon = () => {
-    switch (activity.type) {
+    switch (type) {
       case "mint":
         return <Disc className="text-theme-cyan" />
       case "reward":
@@ -26,16 +22,19 @@ export function ActivityItem({ activity }: ActivityItemProps) {
     }
   }
 
+  // Use timestamp or date, with timestamp taking precedence
+  const displayDate = timestamp || (date ? new Date(date).toLocaleDateString() : "")
+
   return (
     <div className="bg-white/10 rounded-xl p-4 border border-white/20">
       <div className="flex items-start gap-4">
         <div className="bg-white/10 rounded-full p-2">{getIcon()}</div>
         <div className="flex-1">
           <div className="flex justify-between items-start">
-            <h3 className="text-lg font-medium text-white">{activity.title}</h3>
-            <span className="text-white/60 text-sm">{new Date(activity.date).toLocaleDateString()}</span>
+            <h3 className="text-lg font-medium text-white">{title}</h3>
+            <span className="text-white/60 text-sm">{displayDate}</span>
           </div>
-          <p className="text-white/80 mt-1">{activity.description}</p>
+          <p className="text-white/80 mt-1">{description}</p>
         </div>
       </div>
     </div>

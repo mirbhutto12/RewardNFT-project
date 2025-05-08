@@ -1,21 +1,95 @@
-import { type Connection, type PublicKey, Transaction } from "@solana/web3.js"
+import { type Connection, type PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js"
 import {
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  createTransferInstruction,
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountInstruction,
-  getAssociatedTokenAddress,
-  createTransferInstruction,
 } from "@solana/spl-token"
-import { CONFIRMATION_SETTINGS } from "@/config/solana"
+import { DEFAULT_USDC_TOKEN_ADDRESS } from "@/config/solana"
 
 /**
- * Get the associated token account for a wallet and token mint
+ * Get the balance of a token for a wallet
+ * @param connection Solana connection
+ * @param walletAddress Wallet public key
+ * @param tokenMintAddress Token mint address
+ * @returns Token balance as a number
+ */
+export async function getTokenBalance(
+  connection: Connection,
+  walletAddress: PublicKey,
+  tokenMintAddress: PublicKey,
+): Promise<number> {
+  try {
+    // Get the associated token account address
+    const tokenAccountAddress = await getAssociatedTokenAddress(
+      tokenMintAddress,
+      walletAddress,
+      false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    )
+
+    // Get the token account info
+    try {
+      const tokenAccountInfo = await connection.getTokenAccountBalance(tokenAccountAddress)
+      return Number(tokenAccountInfo.value.uiAmount)
+    } catch (error) {
+      // If the token account doesn't exist, return 0
+      return 0
+    }
+  } catch (error) {
+    console.error("Error getting token balance:", error)
+    throw error
+  }
+}
+
+/**
+ * Get all token balances for a wallet
+ * @param connection Solana connection
+ * @param walletAddress Wallet public key
+ * @returns Object with token mint addresses as keys and balances as values
+ */
+export async function getAllTokenBalances(
+  connection: Connection,
+  walletAddress: PublicKey,
+): Promise<Record<string, number>> {
+  try {
+    // Get all token accounts owned by the wallet
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(walletAddress, {
+      programId: TOKEN_PROGRAM_ID,
+    })
+
+    // Create a map of token mint addresses to balances
+    const balances: Record<string, number> = {}
+    tokenAccounts.value.forEach((tokenAccount) => {
+      const tokenMintAddress = tokenAccount.account.data.parsed.info.mint
+      const balance = tokenAccount.account.data.parsed.info.tokenAmount.uiAmount
+      balances[tokenMintAddress] = balance
+    })
+
+    return balances
+  } catch (error) {
+    console.error("Error getting all token balances:", error)
+    throw error
+  }
+}
+
+/**
+ * Get or create an associated token account
+ * @param connection Solana connection
+ * @param payer Payer public key
+ * @param mint Token mint address
+ * @param owner Owner public key
+ * @param transaction Transaction to add instructions to
+ * @returns Associated token account address
  */
 export async function getOrCreateAssociatedTokenAccount(
   connection: Connection,
   payer: PublicKey,
   mint: PublicKey,
   owner: PublicKey,
+  transaction: Transaction,
 ): Promise<PublicKey> {
   // Get the associated token account address
   const associatedTokenAddress = await getAssociatedTokenAddress(
@@ -27,141 +101,159 @@ export async function getOrCreateAssociatedTokenAccount(
   )
 
   // Check if the associated token account exists
-  try {
-    await connection.getTokenAccountBalance(associatedTokenAddress)
-    return associatedTokenAddress
-  } catch (error) {
-    // If the account doesn't exist, return the address anyway
-    // The account will be created during the transfer if needed
-    return associatedTokenAddress
-  }
-}
+  const accountInfo = await connection.getAccountInfo(associatedTokenAddress)
 
-/**
- * Create a transaction to transfer tokens
- */
-export async function createTokenTransferTransaction(
-  connection: Connection,
-  fromPublicKey: PublicKey,
-  toPublicKey: PublicKey,
-  tokenMint: PublicKey,
-  amount: number,
-  decimals = 6, // USDT has 6 decimals
-): Promise<Transaction> {
-  // Get the associated token accounts for sender and receiver
-  const fromTokenAccount = await getOrCreateAssociatedTokenAccount(connection, fromPublicKey, tokenMint, fromPublicKey)
-
-  const toTokenAccount = await getOrCreateAssociatedTokenAccount(connection, fromPublicKey, tokenMint, toPublicKey)
-
-  // Create the transaction
-  const transaction = new Transaction()
-
-  // Check if the receiver's token account exists
-  try {
-    await connection.getTokenAccountBalance(toTokenAccount)
-  } catch (error) {
-    // If the receiver's token account doesn't exist, create it
+  // If the account doesn't exist, add an instruction to create it
+  if (!accountInfo) {
     transaction.add(
       createAssociatedTokenAccountInstruction(
-        fromPublicKey,
-        toTokenAccount,
-        toPublicKey,
-        tokenMint,
+        payer,
+        associatedTokenAddress,
+        owner,
+        mint,
         TOKEN_PROGRAM_ID,
         ASSOCIATED_TOKEN_PROGRAM_ID,
       ),
     )
   }
 
-  // Add the transfer instruction
-  transaction.add(
-    createTransferInstruction(
-      fromTokenAccount,
-      toTokenAccount,
-      fromPublicKey,
-      amount * 10 ** decimals,
-      [],
-      TOKEN_PROGRAM_ID,
-    ),
-  )
-
-  // Get the latest blockhash
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
-  transaction.recentBlockhash = blockhash
-  transaction.lastValidBlockHeight = lastValidBlockHeight
-  transaction.feePayer = fromPublicKey
-
-  return transaction
+  return associatedTokenAddress
 }
 
 /**
- * Get token balance for a wallet
+ * Create a transaction to transfer tokens from one wallet to another
+ * @param connection Solana connection
+ * @param sender Sender public key
+ * @param recipient Recipient public key
+ * @param tokenMintAddress Token mint address
+ * @param amount Amount to transfer
+ * @returns Transaction
  */
-export async function getTokenBalance(
+export async function createTokenTransferTransaction(
   connection: Connection,
-  walletAddress: PublicKey,
-  tokenMint: PublicKey,
-): Promise<number> {
+  sender: PublicKey,
+  recipient: PublicKey,
+  tokenMintAddress: PublicKey,
+  amount: number,
+): Promise<Transaction> {
   try {
-    // Get the associated token account
-    const tokenAccount = await getAssociatedTokenAddress(
-      tokenMint,
-      walletAddress,
-      false,
-      TOKEN_PROGRAM_ID,
-      ASSOCIATED_TOKEN_PROGRAM_ID,
+    // Create a new transaction
+    const transaction = new Transaction()
+
+    // Get the recent blockhash
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+    transaction.recentBlockhash = blockhash
+    transaction.lastValidBlockHeight = lastValidBlockHeight
+    transaction.feePayer = sender
+
+    // Get or create the sender's associated token account
+    const senderTokenAccount = await getOrCreateAssociatedTokenAccount(
+      connection,
+      sender,
+      tokenMintAddress,
+      sender,
+      transaction,
     )
 
-    try {
-      // Get the token balance
-      const balance = await connection.getTokenAccountBalance(tokenAccount)
-      return balance.value.uiAmount || 0
-    } catch (error) {
-      // If the token account doesn't exist, return 0
-      return 0
-    }
+    // Get or create the recipient's associated token account
+    const recipientTokenAccount = await getOrCreateAssociatedTokenAccount(
+      connection,
+      sender,
+      tokenMintAddress,
+      recipient,
+      transaction,
+    )
+
+    // Get the token decimals
+    const tokenDecimals = tokenMintAddress.equals(DEFAULT_USDC_TOKEN_ADDRESS) ? 6 : 9
+    const amountInSmallestUnit = Math.floor(amount * 10 ** tokenDecimals)
+
+    // Add the transfer instruction
+    transaction.add(
+      createTransferInstruction(
+        senderTokenAccount,
+        recipientTokenAccount,
+        sender,
+        amountInSmallestUnit,
+        [],
+        TOKEN_PROGRAM_ID,
+      ),
+    )
+
+    return transaction
   } catch (error) {
-    console.error("Error getting token balance:", error)
-    return 0
+    console.error("Error creating token transfer transaction:", error)
+    throw error
+  }
+}
+
+/**
+ * Create a transaction to transfer SOL from one wallet to another
+ * @param connection Solana connection
+ * @param sender Sender public key
+ * @param recipient Recipient public key
+ * @param amount Amount to transfer in SOL
+ * @returns Transaction
+ */
+export async function createSolTransferTransaction(
+  connection: Connection,
+  sender: PublicKey,
+  recipient: PublicKey,
+  amount: number,
+): Promise<Transaction> {
+  try {
+    // Create a new transaction
+    const transaction = new Transaction()
+
+    // Get the recent blockhash
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+    transaction.recentBlockhash = blockhash
+    transaction.lastValidBlockHeight = lastValidBlockHeight
+    transaction.feePayer = sender
+
+    // Add the transfer instruction
+    transaction.add(
+      SystemProgram.transfer({
+        fromPubkey: sender,
+        toPubkey: recipient,
+        lamports: Math.floor(amount * LAMPORTS_PER_SOL),
+      }),
+    )
+
+    return transaction
+  } catch (error) {
+    console.error("Error creating SOL transfer transaction:", error)
+    throw error
   }
 }
 
 /**
  * Send a signed transaction and confirm it
+ * @param connection Solana connection
+ * @param signedTransaction Signed transaction
+ * @returns Transaction signature
  */
-export async function sendSignedTransaction(connection: Connection, signedTransaction: Buffer): Promise<string> {
-  // Send the transaction
-  const signature = await connection.sendRawTransaction(signedTransaction, {
-    skipPreflight: false,
-    preflightCommitment: "confirmed",
-  })
+export async function sendSignedTransaction(connection: Connection, signedTransaction: Transaction): Promise<string> {
+  try {
+    // Serialize the transaction
+    const rawTransaction = signedTransaction.serialize()
 
-  // Confirm the transaction with retries
-  let retries = CONFIRMATION_SETTINGS.maxRetries
-  while (retries > 0) {
-    try {
-      const confirmation = await connection.confirmTransaction({
-        signature,
-        blockhash: (JSON.parse(Buffer.from(signedTransaction).toString()) as Transaction).recentBlockhash!,
-        lastValidBlockHeight: (JSON.parse(Buffer.from(signedTransaction).toString()) as Transaction)
-          .lastValidBlockHeight!,
-      })
+    // Send the transaction
+    const signature = await connection.sendRawTransaction(rawTransaction, {
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
+    })
 
-      if (confirmation.value.err) {
-        throw new Error(`Transaction failed: ${confirmation.value.err.toString()}`)
-      }
+    // Confirm the transaction
+    await connection.confirmTransaction({
+      signature,
+      blockhash: signedTransaction.recentBlockhash!,
+      lastValidBlockHeight: signedTransaction.lastValidBlockHeight!,
+    })
 
-      return signature
-    } catch (error) {
-      retries--
-      if (retries === 0) {
-        throw error
-      }
-
-      // Wait before retrying
-      await new Promise((resolve) => setTimeout(resolve, CONFIRMATION_SETTINGS.retryInterval))
-    }
+    return signature
+  } catch (error) {
+    console.error("Error sending signed transaction:", error)
+    throw error
   }
-
-  throw new Error("Transaction confirmation timed out")
 }

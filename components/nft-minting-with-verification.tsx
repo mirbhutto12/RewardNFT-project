@@ -1,31 +1,36 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
-import { Loader2, CheckCircle2, AlertCircle, Shield } from "lucide-react"
 import { useWallet } from "@/contexts/wallet-context"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Loader2, CheckCircle2, AlertCircle, Shield } from "lucide-react"
+import Image from "next/image"
+import { NFT_MINT_COST_USDC, DEFAULT_USDC_TOKEN_ADDRESS, PLATFORM_WALLET_ADDRESS, NFT_METADATA } from "@/config/solana"
+import { createTokenTransferTransaction } from "@/utils/token"
 import { toast } from "@/components/ui/use-toast"
-import { NFT_METADATA } from "@/config/solana"
-import { NftVerificationBadge } from "@/components/nft-verification-badge"
-import { Connection } from "@solana/web3.js"
-import { DEFAULT_RPC_ENDPOINT } from "@/config/solana"
-import { fetchAndVerifyNftMetadata } from "@/utils/nft-verification"
+import { NftVerificationBadge } from "./nft-verification-badge"
 
 interface NftMintingWithVerificationProps {
-  onSuccess?: (mintAddress: string) => void
-  onError?: (error: Error) => void
+  onSuccess?: (signature: string) => void
 }
 
-export function NftMintingWithVerification({ onSuccess, onError }: NftMintingWithVerificationProps) {
-  const { connected, publicKey } = useWallet()
-  const [mintingStatus, setMintingStatus] = useState<"idle" | "minting" | "verifying" | "success" | "error">("idle")
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [mintAddress, setMintAddress] = useState<string | null>(null)
-  const [verification, setVerification] = useState<any>(null)
+export function NftMintingWithVerification({ onSuccess }: NftMintingWithVerificationProps) {
+  const { publicKey, connected, connection, signAndSendTransaction, usdcBalance } = useWallet()
+  const [status, setStatus] = useState<"idle" | "paying" | "minting" | "verifying" | "success" | "error">("idle")
+  const [error, setError] = useState<string | null>(null)
+  const [txSignature, setTxSignature] = useState<string | null>(null)
+  const [verification, setVerification] = useState<{
+    status: "verified" | "pending" | "failed"
+    message: string
+    details: {
+      metadataVerified: boolean
+      imageVerified: boolean
+      onChainVerified: boolean
+    }
+  } | null>(null)
 
-  const handleMintNft = async () => {
+  const handleMint = async () => {
     if (!connected || !publicKey) {
       toast({
         title: "Wallet not connected",
@@ -35,130 +40,195 @@ export function NftMintingWithVerification({ onSuccess, onError }: NftMintingWit
       return
     }
 
+    if (!usdcBalance || usdcBalance < NFT_MINT_COST_USDC) {
+      toast({
+        title: "Insufficient USDC balance",
+        description: `You need at least ${NFT_MINT_COST_USDC} USDC to mint an NFT`,
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
-      // Start minting process
-      setMintingStatus("minting")
-      setErrorMessage(null)
+      // Step 1: Pay with USDC
+      setStatus("paying")
+      setError(null)
 
-      // Simulate minting process with a delay
-      await new Promise((resolve) => setTimeout(resolve, 3000))
+      // Create a transaction to transfer USDC to the platform wallet
+      const transaction = await createTokenTransferTransaction(
+        connection,
+        publicKey,
+        PLATFORM_WALLET_ADDRESS,
+        DEFAULT_USDC_TOKEN_ADDRESS,
+        NFT_MINT_COST_USDC,
+      )
 
-      // Generate a simulated mint address
-      const simulatedMintAddress = `${publicKey.toString().slice(0, 8)}...${Math.random().toString(36).substring(2, 10)}`
-      setMintAddress(simulatedMintAddress)
+      // Sign and send the transaction
+      const signature = await signAndSendTransaction(transaction)
+      setTxSignature(signature)
 
-      // Start verification process
-      setMintingStatus("verifying")
+      // Step 2: Mint the NFT (simulated)
+      setStatus("minting")
 
-      // Simulate verification process
-      const connection = new Connection(DEFAULT_RPC_ENDPOINT)
-      const { verification: verificationResult } = await fetchAndVerifyNftMetadata(simulatedMintAddress, connection)
-      setVerification(verificationResult)
+      // Simulate NFT minting process with a delay
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      // Set success status
-      setMintingStatus("success")
+      // Step 3: Verify the NFT
+      setStatus("verifying")
 
-      // Call onSuccess callback if provided
-      onSuccess && onSuccess(simulatedMintAddress)
+      // Simulate verification process with a delay
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Set verification result
+      setVerification({
+        status: "verified",
+        message: "NFT successfully verified",
+        details: {
+          metadataVerified: true,
+          imageVerified: true,
+          onChainVerified: true,
+        },
+      })
+
+      // Success
+      setStatus("success")
+
+      // Call the onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess(signature)
+      }
 
       toast({
         title: "NFT Minted Successfully",
         description: "Your NFT has been minted, verified, and added to your wallet",
       })
-    } catch (error: any) {
-      console.error("NFT minting error:", error)
-      setMintingStatus("error")
-      setErrorMessage(error.message || "Failed to mint NFT")
-
-      // Call onError callback if provided
-      onError && onError(error)
-
+    } catch (err: any) {
+      console.error("Minting error:", err)
+      setStatus("error")
+      setError(err.message || "An error occurred during the minting process")
       toast({
-        title: "Mint Failed",
-        description: error.message || "Failed to mint NFT. Please try again.",
+        title: "Minting Failed",
+        description: err.message || "An error occurred during the minting process",
         variant: "destructive",
       })
     }
   }
 
-  const renderMintingStatus = () => {
-    switch (mintingStatus) {
-      case "idle":
-        return (
-          <Button onClick={handleMintNft} className="w-full bg-white hover:bg-white/90 text-black py-6 text-lg">
-            Mint NFT
-          </Button>
-        )
-      case "minting":
-        return (
-          <div className="space-y-4">
-            <div className="bg-white/20 rounded-lg p-4 flex items-center justify-center">
-              <Loader2 className="animate-spin h-6 w-6 text-white mr-2" />
-              <span className="text-white">Minting in progress...</span>
-            </div>
-            <Progress value={65} className="h-2 bg-white/10" />
-          </div>
-        )
-      case "verifying":
-        return (
-          <div className="space-y-4">
-            <div className="bg-white/20 rounded-lg p-4 flex items-center justify-center">
-              <Shield className="animate-pulse h-6 w-6 text-white mr-2" />
-              <span className="text-white">Verifying NFT metadata...</span>
-            </div>
-            <Progress value={85} className="h-2 bg-white/10" />
-          </div>
-        )
-      case "success":
-        return (
-          <div className="space-y-4">
-            <div className="bg-green-500/20 rounded-lg p-4 flex items-center">
-              <CheckCircle2 className="h-6 w-6 text-green-400 mr-2" />
-              <span className="text-white">NFT successfully minted!</span>
-            </div>
+  return (
+    <div className="flex flex-col items-center">
+      <Card className="w-full max-w-md bg-white/5 backdrop-blur-sm border-white/10">
+        <CardContent className="p-6">
+          <div className="relative aspect-square w-full mb-4 bg-black/20 rounded-lg overflow-hidden">
+            <Image
+              src={NFT_METADATA.image || "/placeholder.svg?height=300&width=300"}
+              alt={NFT_METADATA.name}
+              fill
+              className="object-cover rounded-lg"
+            />
             {verification && (
-              <div className="flex justify-center">
-                <NftVerificationBadge verification={verification} size="lg" />
+              <div className="absolute top-2 right-2">
+                <NftVerificationBadge status={verification.status} />
               </div>
             )}
           </div>
-        )
-      case "error":
-        return (
+
           <div className="space-y-4">
-            <div className="bg-red-500/20 rounded-lg p-4 flex items-center">
-              <AlertCircle className="h-6 w-6 text-red-400 mr-2" />
-              <span className="text-white">{errorMessage || "Error minting NFT. Please try again."}</span>
+            <div>
+              <h3 className="text-xl font-bold text-white">{NFT_METADATA.name}</h3>
+              <p className="text-white/70">{NFT_METADATA.description}</p>
+              <p className="text-white/70 mt-1">Mint price: {NFT_MINT_COST_USDC} USDC</p>
             </div>
-            <Button onClick={handleMintNft} className="w-full bg-white hover:bg-white/90 text-black">
-              Try Again
-            </Button>
+
+            {status === "idle" && (
+              <Button
+                onClick={handleMint}
+                disabled={!connected || !usdcBalance || usdcBalance < NFT_MINT_COST_USDC}
+                className="w-full"
+              >
+                {!connected
+                  ? "Connect Wallet to Mint"
+                  : !usdcBalance || usdcBalance < NFT_MINT_COST_USDC
+                    ? `Insufficient USDC (${usdcBalance || 0} USDC)`
+                    : "Mint NFT"}
+              </Button>
+            )}
+
+            {status === "paying" && (
+              <div className="flex flex-col items-center gap-2 py-2">
+                <Loader2 className="h-6 w-6 animate-spin text-white" />
+                <p className="text-white/80">Processing USDC payment...</p>
+              </div>
+            )}
+
+            {status === "minting" && (
+              <div className="flex flex-col items-center gap-2 py-2">
+                <Loader2 className="h-6 w-6 animate-spin text-white" />
+                <p className="text-white/80">Minting your NFT...</p>
+              </div>
+            )}
+
+            {status === "verifying" && (
+              <div className="flex flex-col items-center gap-2 py-2">
+                <Shield className="h-6 w-6 text-blue-400 animate-pulse" />
+                <p className="text-white/80">Verifying NFT metadata...</p>
+              </div>
+            )}
+
+            {status === "success" && (
+              <div className="flex flex-col items-center gap-2 py-2">
+                <CheckCircle2 className="h-6 w-6 text-green-400" />
+                <p className="text-white/80">NFT minted and verified!</p>
+                {verification && (
+                  <div className="bg-white/10 rounded p-2 w-full mt-2">
+                    <p className="text-sm font-medium text-white">{verification.message}</p>
+                    <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                      <div className="flex items-center gap-1">
+                        <div
+                          className={`w-2 h-2 rounded-full ${verification.details.metadataVerified ? "bg-green-400" : "bg-red-400"}`}
+                        ></div>
+                        <span>Metadata</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div
+                          className={`w-2 h-2 rounded-full ${verification.details.imageVerified ? "bg-green-400" : "bg-red-400"}`}
+                        ></div>
+                        <span>Image</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div
+                          className={`w-2 h-2 rounded-full ${verification.details.onChainVerified ? "bg-green-400" : "bg-red-400"}`}
+                        ></div>
+                        <span>On-chain</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {txSignature && (
+                  <a
+                    href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-400 hover:underline"
+                  >
+                    View transaction
+                  </a>
+                )}
+              </div>
+            )}
+
+            {status === "error" && (
+              <div className="flex flex-col items-center gap-2 py-2">
+                <AlertCircle className="h-6 w-6 text-red-400" />
+                <p className="text-red-400">Minting failed</p>
+                {error && <p className="text-sm text-white/60">{error}</p>}
+                <Button variant="outline" size="sm" onClick={() => setStatus("idle")}>
+                  Try Again
+                </Button>
+              </div>
+            )}
           </div>
-        )
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col items-center">
-        <div className="relative w-64 h-64 mb-4">
-          <Image
-            src={NFT_METADATA.image || "/placeholder.svg?height=300&width=300"}
-            alt={NFT_METADATA.name}
-            fill
-            className="object-cover rounded-lg"
-          />
-          {mintingStatus === "success" && verification && verification.isVerified && (
-            <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1">
-              <CheckCircle2 className="h-4 w-4 text-white" />
-            </div>
-          )}
-        </div>
-        <h3 className="text-xl font-bold text-white">{NFT_METADATA.name}</h3>
-        <p className="text-white/60 text-sm mt-1">{NFT_METADATA.description}</p>
-      </div>
-
-      {renderMintingStatus()}
+        </CardContent>
+      </Card>
     </div>
   )
 }

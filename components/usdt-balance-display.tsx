@@ -10,7 +10,7 @@ interface UsdtBalanceDisplayProps {
 }
 
 export function UsdtBalanceDisplay({ className = "" }: UsdtBalanceDisplayProps) {
-  const { connected, usdtBalance, refreshBalances } = useWallet()
+  const { connected, usdcBalance, refreshBalances } = useWallet()
   const [loading, setLoading] = useState(false)
 
   const handleRefresh = async () => {
@@ -42,7 +42,7 @@ export function UsdtBalanceDisplay({ className = "" }: UsdtBalanceDisplayProps) 
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          `${usdtBalance !== null ? usdtBalance.toFixed(2) : "0.00"} USDT`
+          `${usdcBalance !== null ? usdcBalance.toFixed(2) : "0.00"} USDC`
         )}
       </span>
       <Button

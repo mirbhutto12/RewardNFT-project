@@ -1,4 +1,5 @@
 import { ProfilePageContent } from "@/components/profile-page-content"
+import { TransactionSecurityDashboard } from "@/components/transaction-security-dashboard"
 
 export const metadata = {
   title: "User Profile | Reward NFT Platform",
@@ -6,5 +7,10 @@ export const metadata = {
 }
 
 export default function ProfilePage() {
-  return <ProfilePageContent />
+  return (
+    <>
+      <ProfilePageContent />
+      <TransactionSecurityDashboard />
+    </>
+  )
 }

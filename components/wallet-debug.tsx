@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useWallet } from "@/contexts/wallet-context"
 import { isPhantomInstalled, checkSolanaNetwork, getPhantomProvider } from "@/utils/phantom-provider"
+import type { SolanaNetwork } from "@/utils/solana-network"
 
 export function WalletDebug() {
   const { connected, publicKey } = useWallet()
@@ -38,9 +39,10 @@ export function WalletDebug() {
           isConnected: provider?.isConnected || false,
         }
 
-        // Check network
+        // Check network - pass the expected network from environment variable if available
         if (provider) {
-          const networkInfo = await checkSolanaNetwork(provider)
+          const expectedNetwork = (process.env.NEXT_PUBLIC_SOLANA_NETWORK as SolanaNetwork) || undefined
+          const networkInfo = await checkSolanaNetwork(provider, expectedNetwork)
           diagnostics.phantom.network = networkInfo
         }
       } catch (error) {
