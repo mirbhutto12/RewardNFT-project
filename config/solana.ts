@@ -58,11 +58,15 @@ export const NFT_MINT_COST_USDC = 10
 
 // NFT metadata
 export const NFT_METADATA = {
-  name: "RewardNFT Mint Pass",
-  symbol: "RNFT",
-  description: "Mint and earn with RewardNFT. This is your gateway to quests, referrals, and rewards.",
-  image: "/placeholder.svg?key=ascgd",
-  attributes: [],
+  name: "Solana Reward NFT",
+  symbol: "SRWD",
+  description: "An exclusive NFT for the Solana Reward Platform",
+  image: "/nft-reward-token.png",
+  attributes: [
+    { trait_type: "Collection", value: "Solana Rewards" },
+    { trait_type: "Rarity", value: "Legendary" },
+    { trait_type: "Type", value: "Membership" },
+  ],
 }
 
 // Confirmation settings

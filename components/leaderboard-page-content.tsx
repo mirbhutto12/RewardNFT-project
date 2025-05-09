@@ -1,65 +1,56 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Search, Trophy, ArrowRight, Loader2 } from "lucide-react"
+import { Search, Trophy, ArrowRight } from "lucide-react"
 import { MobileNav } from "@/components/mobile-nav"
 import { Footer } from "@/components/footer"
-import { useWallet } from "@/contexts/wallet-context"
-import { getLeaderboard, getUserLeaderboardPosition, type LeaderboardEntry } from "@/services/leaderboard-service"
 
 export function LeaderboardPageContent() {
-  const { connected, publicKey } = useWallet()
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [timeframe, setTimeframe] = useState("weekly")
-  const [sortBy, setSortBy] = useState<"total_points" | "referral_count">("total_points")
-  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([])
-  const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null)
+  const [connected, setConnected] = useState(false)
 
-  // Fetch leaderboard data
-  useEffect(() => {
-    const fetchLeaderboardData = async () => {
-      setLoading(true)
-      try {
-        const data = await getLeaderboard(10, 0, sortBy)
-        setLeaderboardData(data)
+  // Sample leaderboard data
+  const referralLeaderboard = [
+    { position: 1, avatar: "S", address: "Satoshi", referrals: 42, earned: 168, color: "bg-yellow-500" },
+    { position: 2, avatar: "V", address: "Vitalik", referrals: 36, earned: 144, color: "bg-gray-400" },
+    { position: 3, avatar: "A", address: "Alice", referrals: 29, earned: 116, color: "bg-amber-700" },
+    { position: 4, avatar: "B", address: "Bob", referrals: 25, earned: 100, color: "bg-blue-500" },
+    { position: 5, avatar: "C", address: "Charlie", referrals: 21, earned: 84, color: "bg-green-500" },
+    { position: 6, avatar: "D", address: "Dave", referrals: 18, earned: 72, color: "bg-purple-500" },
+    { position: 7, avatar: "E", address: "Eve", referrals: 16, earned: 64, color: "bg-pink-500" },
+    { position: 8, avatar: "F", address: "Frank", referrals: 14, earned: 56, color: "bg-orange-500" },
+    { position: 9, avatar: "G", address: "Grace", referrals: 12, earned: 48, color: "bg-teal-500" },
+    { position: 10, avatar: "H", address: "Hank", referrals: 10, earned: 40, color: "bg-indigo-500" },
+  ]
 
-        // Get user's rank if connected
-        if (connected && publicKey) {
-          const walletAddress = publicKey.toString()
-          const userPosition = await getUserLeaderboardPosition(walletAddress)
-          setUserRank(userPosition)
-        }
-      } catch (error) {
-        console.error("Error fetching leaderboard data:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
+  const questLeaderboard = [
+    { position: 1, avatar: "A", address: "Alice", quests: 32, points: 1680, color: "bg-yellow-500" },
+    { position: 2, avatar: "S", address: "Satoshi", quests: 28, points: 1440, color: "bg-gray-400" },
+    { position: 3, avatar: "V", address: "Vitalik", quests: 25, points: 1250, color: "bg-amber-700" },
+    { position: 4, avatar: "G", address: "Grace", quests: 22, points: 1120, color: "bg-blue-500" },
+    { position: 5, avatar: "F", address: "Frank", quests: 20, points: 1000, color: "bg-green-500" },
+    { position: 6, avatar: "E", address: "Eve", quests: 18, points: 900, color: "bg-purple-500" },
+    { position: 7, avatar: "D", address: "Dave", quests: 16, points: 800, color: "bg-pink-500" },
+    { position: 8, avatar: "C", address: "Charlie", quests: 14, points: 700, color: "bg-orange-500" },
+    { position: 9, avatar: "B", address: "Bob", quests: 12, points: 600, color: "bg-teal-500" },
+    { position: 10, avatar: "H", address: "Hank", quests: 10, points: 500, color: "bg-indigo-500" },
+  ]
 
-    fetchLeaderboardData()
-  }, [connected, publicKey, sortBy])
-
-  // Filter leaderboard data based on search term
-  const filteredLeaderboardData = leaderboardData.filter((entry) =>
-    entry.walletAddress?.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const myRank = { position: 15, referrals: 8, earned: 32 }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#FFA500] via-[#FF5555] to-[#00C2FF]">
+    <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="w-full py-4 px-6 bg-black/20 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="relative h-12 w-12 bg-[#00FFE0] rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">R</span>
-            </div>
+            <Image src="/images/logo.png" alt="Reward NFT Logo" width={48} height={48} className="rounded-lg" />
             <span className="text-white font-bold text-2xl">Reward NFT</span>
           </Link>
 
@@ -82,6 +73,12 @@ export function LeaderboardPageContent() {
             <Button asChild variant="outline" className="hidden sm:flex border-white/30 text-white hover:bg-white/10">
               <Link href="/profile">My Profile</Link>
             </Button>
+            <Button
+              onClick={() => setConnected(!connected)}
+              className={connected ? "bg-white/10 text-white border border-white/30" : "bg-white text-black"}
+            >
+              {connected ? "Disconnect" : "Connect Wallet"}
+            </Button>
             <MobileNav />
           </div>
         </div>
@@ -96,20 +93,20 @@ export function LeaderboardPageContent() {
               <p className="text-xl text-white/80">See the top performers on the platform</p>
             </div>
 
-            {connected && userRank && (
+            {connected && (
               <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-4">
                 <div className="flex items-center gap-8">
                   <div>
                     <p className="text-white/60 text-sm">Your Rank</p>
-                    <p className="text-2xl font-bold text-white">#{userRank.rank || "-"}</p>
+                    <p className="text-2xl font-bold text-white">#{myRank.position}</p>
                   </div>
                   <div>
                     <p className="text-white/60 text-sm">Your Referrals</p>
-                    <p className="text-2xl font-bold text-white">{userRank.referralCount}</p>
+                    <p className="text-2xl font-bold text-white">{myRank.referrals}</p>
                   </div>
                   <div>
-                    <p className="text-white/60 text-sm">Total Points</p>
-                    <p className="text-2xl font-bold text-white">{userRank.totalPoints}</p>
+                    <p className="text-white/60 text-sm">USDC Earned</p>
+                    <p className="text-2xl font-bold text-white">{myRank.earned}</p>
                   </div>
                 </div>
               </div>
@@ -120,16 +117,14 @@ export function LeaderboardPageContent() {
             <div className="flex items-center w-full sm:w-auto relative">
               <Input
                 type="text"
-                placeholder="Search by wallet address"
+                placeholder="Search by username or address"
                 className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 w-full"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
             </div>
 
             <div className="flex items-center gap-4 w-full sm:w-auto">
-              <Select value={timeframe} onValueChange={setTimeframe}>
+              <Select defaultValue="weekly">
                 <SelectTrigger className="w-full sm:w-[180px] bg-white/10 border-white/20 text-white">
                   <SelectValue placeholder="Select timeframe" />
                 </SelectTrigger>
@@ -145,90 +140,71 @@ export function LeaderboardPageContent() {
 
           <Tabs defaultValue="referrals" className="w-full">
             <TabsList className="bg-white/10 border border-white/20 mb-8">
-              <TabsTrigger
-                value="referrals"
-                className="data-[state=active]:bg-white/20 text-white"
-                onClick={() => setSortBy("referral_count")}
-              >
+              <TabsTrigger value="referrals" className="data-[state=active]:bg-white/20 text-white">
                 Referrals
               </TabsTrigger>
-              <TabsTrigger
-                value="points"
-                className="data-[state=active]:bg-white/20 text-white"
-                onClick={() => setSortBy("total_points")}
-              >
-                Total Points
+              <TabsTrigger value="quests" className="data-[state=active]:bg-white/20 text-white">
+                Quests
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="referrals" className="mt-0">
               <div className="bg-white/10 backdrop-blur-sm rounded-3xl border border-white/20 p-6 sm:p-8">
-                {loading ? (
-                  <div className="flex justify-center items-center py-12">
-                    <Loader2 className="h-8 w-8 text-white animate-spin" />
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-white/10">
-                          <th className="text-left text-white/60 py-4 px-2 sm:px-4">#</th>
-                          <th className="text-left text-white/60 py-4 px-2 sm:px-4">User</th>
-                          <th className="text-right text-white/60 py-4 px-2 sm:px-4">Referrals</th>
-                          <th className="text-right text-white/60 py-4 px-2 sm:px-4">Total Points</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredLeaderboardData.map((user, index) => (
-                          <tr
-                            key={user.id}
-                            className={`border-b border-white/10 last:border-0 ${index < 3 ? "bg-white/5" : ""}`}
-                          >
-                            <td className="py-4 px-2 sm:px-4">
-                              <div className="flex items-center">
-                                {index < 3 ? (
-                                  <div className="bg-white/10 rounded-full h-8 w-8 flex items-center justify-center">
-                                    <Trophy
-                                      className={`h-4 w-4 ${
-                                        index === 0
-                                          ? "text-yellow-400"
-                                          : index === 1
-                                            ? "text-gray-300"
-                                            : "text-amber-600"
-                                      }`}
-                                    />
-                                  </div>
-                                ) : (
-                                  <span className="text-white font-medium pl-2">{index + 1}</span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-4 px-2 sm:px-4">
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8 bg-gradient-to-br from-purple-500 to-blue-500">
-                                  <AvatarFallback className="text-white">
-                                    {user.walletAddress ? user.walletAddress.substring(0, 1).toUpperCase() : "?"}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="text-white font-medium">
-                                    {user.walletAddress
-                                      ? `${user.walletAddress.substring(0, 4)}...${user.walletAddress.substring(user.walletAddress.length - 4)}`
-                                      : "Unknown"}
-                                  </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        <th className="text-left text-white/60 py-4 px-2 sm:px-4">#</th>
+                        <th className="text-left text-white/60 py-4 px-2 sm:px-4">User</th>
+                        <th className="text-right text-white/60 py-4 px-2 sm:px-4">Referrals</th>
+                        <th className="text-right text-white/60 py-4 px-2 sm:px-4">USDC Earned</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {referralLeaderboard.map((user) => (
+                        <tr
+                          key={user.position}
+                          className={`border-b border-white/10 last:border-0 ${user.position <= 3 ? "bg-white/5" : ""}`}
+                        >
+                          <td className="py-4 px-2 sm:px-4">
+                            <div className="flex items-center">
+                              {user.position <= 3 ? (
+                                <div className="bg-white/10 rounded-full h-8 w-8 flex items-center justify-center">
+                                  <Trophy
+                                    className={`h-4 w-4 ${
+                                      user.position === 1
+                                        ? "text-yellow-400"
+                                        : user.position === 2
+                                          ? "text-gray-300"
+                                          : "text-amber-600"
+                                    }`}
+                                  />
                                 </div>
+                              ) : (
+                                <span className="text-white font-medium pl-2">{user.position}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-4 px-2 sm:px-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar className={`${user.color} h-8 w-8`}>
+                                <AvatarFallback className="text-white">{user.avatar}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-white font-medium">{user.address}</p>
+                                <p className="text-white/60 text-xs">
+                                  0x{Math.random().toString(16).substring(2, 10)}...
+                                </p>
                               </div>
-                            </td>
-                            <td className="text-right text-white font-medium py-4 px-2 sm:px-4">
-                              {user.referralCount}
-                            </td>
-                            <td className="text-right text-white font-medium py-4 px-2 sm:px-4">{user.totalPoints}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                            </div>
+                          </td>
+                          <td className="text-right text-white font-medium py-4 px-2 sm:px-4">{user.referrals}</td>
+                          <td className="text-right text-white font-medium py-4 px-2 sm:px-4">{user.earned} USDC</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <div className="flex justify-center mt-8">
@@ -238,72 +214,63 @@ export function LeaderboardPageContent() {
               </div>
             </TabsContent>
 
-            <TabsContent value="points" className="mt-0">
+            <TabsContent value="quests" className="mt-0">
               <div className="bg-white/10 backdrop-blur-sm rounded-3xl border border-white/20 p-6 sm:p-8">
-                {loading ? (
-                  <div className="flex justify-center items-center py-12">
-                    <Loader2 className="h-8 w-8 text-white animate-spin" />
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-white/10">
-                          <th className="text-left text-white/60 py-4 px-2 sm:px-4">#</th>
-                          <th className="text-left text-white/60 py-4 px-2 sm:px-4">User</th>
-                          <th className="text-right text-white/60 py-4 px-2 sm:px-4">Total Points</th>
-                          <th className="text-right text-white/60 py-4 px-2 sm:px-4">Quests</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredLeaderboardData.map((user, index) => (
-                          <tr
-                            key={user.id}
-                            className={`border-b border-white/10 last:border-0 ${index < 3 ? "bg-white/5" : ""}`}
-                          >
-                            <td className="py-4 px-2 sm:px-4">
-                              <div className="flex items-center">
-                                {index < 3 ? (
-                                  <div className="bg-white/10 rounded-full h-8 w-8 flex items-center justify-center">
-                                    <Trophy
-                                      className={`h-4 w-4 ${
-                                        index === 0
-                                          ? "text-yellow-400"
-                                          : index === 1
-                                            ? "text-gray-300"
-                                            : "text-amber-600"
-                                      }`}
-                                    />
-                                  </div>
-                                ) : (
-                                  <span className="text-white font-medium pl-2">{index + 1}</span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-4 px-2 sm:px-4">
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8 bg-gradient-to-br from-purple-500 to-blue-500">
-                                  <AvatarFallback className="text-white">
-                                    {user.walletAddress ? user.walletAddress.substring(0, 1).toUpperCase() : "?"}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="text-white font-medium">
-                                    {user.walletAddress
-                                      ? `${user.walletAddress.substring(0, 4)}...${user.walletAddress.substring(user.walletAddress.length - 4)}`
-                                      : "Unknown"}
-                                  </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        <th className="text-left text-white/60 py-4 px-2 sm:px-4">#</th>
+                        <th className="text-left text-white/60 py-4 px-2 sm:px-4">User</th>
+                        <th className="text-right text-white/60 py-4 px-2 sm:px-4">Quests</th>
+                        <th className="text-right text-white/60 py-4 px-2 sm:px-4">Points</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {questLeaderboard.map((user) => (
+                        <tr
+                          key={user.position}
+                          className={`border-b border-white/10 last:border-0 ${user.position <= 3 ? "bg-white/5" : ""}`}
+                        >
+                          <td className="py-4 px-2 sm:px-4">
+                            <div className="flex items-center">
+                              {user.position <= 3 ? (
+                                <div className="bg-white/10 rounded-full h-8 w-8 flex items-center justify-center">
+                                  <Trophy
+                                    className={`h-4 w-4 ${
+                                      user.position === 1
+                                        ? "text-yellow-400"
+                                        : user.position === 2
+                                          ? "text-gray-300"
+                                          : "text-amber-600"
+                                    }`}
+                                  />
                                 </div>
+                              ) : (
+                                <span className="text-white font-medium pl-2">{user.position}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-4 px-2 sm:px-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar className={`${user.color} h-8 w-8`}>
+                                <AvatarFallback className="text-white">{user.avatar}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-white font-medium">{user.address}</p>
+                                <p className="text-white/60 text-xs">
+                                  0x{Math.random().toString(16).substring(2, 10)}...
+                                </p>
                               </div>
-                            </td>
-                            <td className="text-right text-white font-medium py-4 px-2 sm:px-4">{user.totalPoints}</td>
-                            <td className="text-right text-white font-medium py-4 px-2 sm:px-4">{user.questCount}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                            </div>
+                          </td>
+                          <td className="text-right text-white font-medium py-4 px-2 sm:px-4">{user.quests}</td>
+                          <td className="text-right text-white font-medium py-4 px-2 sm:px-4">{user.points}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <div className="flex justify-center mt-8">

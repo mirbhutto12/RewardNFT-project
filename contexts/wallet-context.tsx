@@ -11,10 +11,6 @@ import {
   isPhantomInstalled,
   isSolflareInstalled,
 } from "@/utils/wallet-providers"
-import { getOrCreateUser } from "@/services/user-service"
-import { createReferralCode } from "@/services/referral-service"
-import { updateLeaderboardEntry } from "@/services/leaderboard-service"
-import bs58 from "bs58"
 
 interface WalletContextType {
   connected: boolean
@@ -26,7 +22,6 @@ interface WalletContextType {
   connectWallet: (walletName?: string) => Promise<void>
   disconnectWallet: () => void
   signAndSendTransaction: (transaction: Transaction) => Promise<string>
-  signMessage: ((message: string) => Promise<string>) | null
   refreshBalances: () => Promise<void>
   currentWallet: string | null
   availableWallets: Array<{
@@ -35,9 +30,6 @@ interface WalletContextType {
     installed: boolean
     url: string
   }>
-  userId: string | null
-  username: string | null
-  referralCode: string | null
 }
 
 const WalletContext = createContext<WalletContextType>({
@@ -50,13 +42,9 @@ const WalletContext = createContext<WalletContextType>({
   connectWallet: async () => {},
   disconnectWallet: () => {},
   signAndSendTransaction: async () => "",
-  signMessage: null,
   refreshBalances: async () => {},
   currentWallet: null,
   availableWallets: [],
-  userId: null,
-  username: null,
-  referralCode: null,
 })
 
 export const useWallet = () => useContext(WalletContext)
@@ -82,10 +70,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
       url: string
     }>
   >([])
-  const [userId, setUserId] = useState<string | null>(null)
-  const [username, setUsername] = useState<string | null>(null)
-  const [referralCode, setReferralCode] = useState<string | null>(null)
-  const [signMessage, setSignMessage] = useState<((message: string) => Promise<string>) | null>(null)
 
   // Detect available wallets
   useEffect(() => {
@@ -116,35 +100,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
             setCurrentWallet("Phantom")
             setCurrentProvider(provider)
 
-            // Set up message signing function
-            setSignMessage(async (message: string) => {
-              const encodedMessage = new TextEncoder().encode(message)
-              const signedMessage = await provider.signMessage(encodedMessage)
-              return bs58.encode(signedMessage.signature)
-            })
-
             // Refresh balances
             refreshBalances(walletPublicKey)
-
-            // Get or create user in Supabase
-            const walletAddress = walletPublicKey.toString()
-            const user = await getOrCreateUser(walletAddress)
-            if (user) {
-              setUserId(user.id)
-              setUsername(user.username)
-
-              // Get or create referral code
-              const code = await createReferralCode(walletAddress)
-              if (code) {
-                setReferralCode(code)
-              }
-
-              // Initialize leaderboard entry
-              await updateLeaderboardEntry({
-                walletAddress,
-                userId: user.id,
-              })
-            }
           }
         } catch (error) {
           // Wallet not connected or not trusted, that's okay
@@ -165,35 +122,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
             setCurrentWallet("Solflare")
             setCurrentProvider(provider)
 
-            // Set up message signing function
-            setSignMessage(async (message: string) => {
-              const encodedMessage = new TextEncoder().encode(message)
-              const signedMessage = await provider.signMessage(encodedMessage)
-              return bs58.encode(signedMessage.signature)
-            })
-
             // Refresh balances
             refreshBalances(walletPublicKey)
-
-            // Get or create user in Supabase
-            const walletAddress = walletPublicKey.toString()
-            const user = await getOrCreateUser(walletAddress)
-            if (user) {
-              setUserId(user.id)
-              setUsername(user.username)
-
-              // Get or create referral code
-              const code = await createReferralCode(walletAddress)
-              if (code) {
-                setReferralCode(code)
-              }
-
-              // Initialize leaderboard entry
-              await updateLeaderboardEntry({
-                walletAddress,
-                userId: user.id,
-              })
-            }
           }
         } catch (error) {
           // Wallet not connected or not trusted, that's okay
@@ -246,35 +176,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
       setCurrentWallet(walletName)
       setCurrentProvider(provider)
 
-      // Set up message signing function
-      setSignMessage(async (message: string) => {
-        const encodedMessage = new TextEncoder().encode(message)
-        const signedMessage = await provider.signMessage(encodedMessage)
-        return bs58.encode(signedMessage.signature)
-      })
-
       // Refresh balances
       await refreshBalances(walletPublicKey)
-
-      // Get or create user in Supabase
-      const walletAddress = walletPublicKey.toString()
-      const user = await getOrCreateUser(walletAddress)
-      if (user) {
-        setUserId(user.id)
-        setUsername(user.username)
-
-        // Get or create referral code
-        const code = await createReferralCode(walletAddress)
-        if (code) {
-          setReferralCode(code)
-        }
-
-        // Initialize leaderboard entry
-        await updateLeaderboardEntry({
-          walletAddress,
-          userId: user.id,
-        })
-      }
     } catch (error) {
       console.error(`Error connecting ${walletName} wallet:`, error)
     } finally {
@@ -298,10 +201,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
     setUsdcBalance(0)
     setCurrentWallet(null)
     setCurrentProvider(null)
-    setUserId(null)
-    setUsername(null)
-    setReferralCode(null)
-    setSignMessage(null)
   }
 
   // Sign and send transaction
@@ -336,13 +235,9 @@ export function WalletProvider({ children }: WalletProviderProps) {
     connectWallet,
     disconnectWallet,
     signAndSendTransaction,
-    signMessage,
     refreshBalances,
     currentWallet,
     availableWallets,
-    userId,
-    username,
-    referralCode,
   }
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>

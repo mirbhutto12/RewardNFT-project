@@ -1,44 +1,82 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import MainNav from "@/components/main-nav" // Changed from named import to default import
+import Image from "next/image"
+import { WalletConnectButton } from "@/components/wallet-connect-button"
 import { MobileNav } from "@/components/mobile-nav"
-import { useMobile } from "@/hooks/use-mobile"
-import { NetworkIndicator } from "@/components/network-indicator"
-import { AuthButton } from "@/components/auth-button"
-import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-import { ShieldCheck } from "lucide-react"
+import { useWallet } from "@/contexts/wallet-context"
+import { WalletDetection } from "@/components/wallet-detection"
+import { UsdtBalanceDisplay } from "@/components/usdt-balance-display"
+import { NetworkIndicator } from "@/components/network-indicator"
+import { EnvStatus } from "@/components/env-status"
+import { RpcStatus } from "@/components/rpc-status"
 
-export function Header() {
-  const isMobile = useMobile()
-  const { isAdmin } = useAuth()
+interface HeaderProps {
+  transparent?: boolean
+}
+
+export function Header({ transparent = false }: HeaderProps) {
+  const { connected } = useWallet()
+  const [isScrolled, setIsScrolled] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20)
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  const headerClass = transparent
+    ? `w-full py-4 px-6 transition-all duration-300 ${isScrolled ? "bg-black/30 backdrop-blur-md" : "bg-transparent"}`
+    : "w-full py-4 px-6 bg-black/20 backdrop-blur-md"
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center space-x-4 sm:justify-between sm:space-x-0">
-        <div className="flex gap-6 md:gap-10">
-          <Link href="/" className="items-center space-x-2 flex">
-            <span className="font-bold inline-block">Solana Reward NFT</span>
+    <>
+      <WalletDetection />
+      <header className={headerClass}>
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/images/logo.png" alt="Reward NFT Logo" width={48} height={48} className="rounded-lg" />
+            <span className="text-white font-bold text-2xl">Reward NFT</span>
           </Link>
-          {!isMobile && <MainNav />}
-        </div>
-        <div className="flex flex-1 items-center justify-end space-x-4">
-          <nav className="flex items-center space-x-2">
-            {isAdmin && (
-              <Button asChild variant="outline" size="sm" className="hidden md:flex">
-                <Link href="/admin/dashboard">
-                  <ShieldCheck className="h-4 w-4 mr-2" />
-                  Admin
-                </Link>
+
+          <nav className="hidden md:flex items-center gap-8">
+            <Link href="/mint" className="text-white hover:text-white/80 transition-colors">
+              Mint
+            </Link>
+            <Link href="/referrals" className="text-white hover:text-white/80 transition-colors">
+              Referrals
+            </Link>
+            <Link href="/quests" className="text-white hover:text-white/80 transition-colors">
+              Quests
+            </Link>
+            <Link href="/leaderboard" className="text-white hover:text-white/80 transition-colors">
+              Leaderboard
+            </Link>
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <EnvStatus />
+            <RpcStatus />
+            <NetworkIndicator className="hidden sm:flex" />
+            {connected && <UsdtBalanceDisplay className="hidden sm:flex" />}
+            {connected && (
+              <Button asChild variant="outline" className="hidden sm:flex border-white/30 text-white hover:bg-white/10">
+                <Link href="/profile">My Profile</Link>
               </Button>
             )}
-            <NetworkIndicator />
-            <AuthButton />
-          </nav>
+            <WalletConnectButton
+              variant={connected ? "outline" : "default"}
+              className={connected ? "bg-white/10 text-white border border-white/30" : "bg-white text-black"}
+            />
+            <MobileNav />
+          </div>
         </div>
-        {isMobile && <MobileNav />}
-      </div>
-    </header>
+      </header>
+    </>
   )
 }

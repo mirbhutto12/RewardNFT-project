@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Check, Copy, Twitter, Facebook, Mail } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -74,9 +75,7 @@ export function ReferralsPageContent() {
         {/* Header */}
         <header className="w-full py-4 px-6 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="relative h-10 w-10 bg-yellow-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-xl">R</span>
-            </div>
+            <Image src="/images/logo.png" alt="RewardNFT Logo" width={40} height={40} className="rounded-full" />
             <span className="text-white font-bold text-xl">RewardNFT</span>
           </Link>
 

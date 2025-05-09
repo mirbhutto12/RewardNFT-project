@@ -22,7 +22,7 @@ export function HomePageContent() {
   const [showVideo, setShowVideo] = useState(false)
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#1a1a1a] to-[#2d1b4e]">
+    <div className="min-h-screen flex flex-col ">
       <Header transparent />
 
       {/* Hero Section */}

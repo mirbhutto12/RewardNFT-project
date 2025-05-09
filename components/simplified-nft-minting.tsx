@@ -5,7 +5,7 @@ import { useWallet } from "@/contexts/wallet-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
-import Image from "next/image"
+import { LazyImage } from "./lazy-image"
 import { NFT_MINT_COST_USDC, DEFAULT_USDC_TOKEN_ADDRESS, PLATFORM_WALLET_ADDRESS } from "@/config/solana"
 import { createTokenTransferTransaction } from "@/utils/token"
 import { toast } from "@/components/ui/use-toast"
@@ -92,7 +92,7 @@ export function SimplifiedNftMinting({ onSuccess }: SimplifiedNftMintingProps) {
       <Card className="w-full max-w-md bg-white/5 backdrop-blur-sm border-white/10">
         <CardContent className="p-6">
           <div className="relative aspect-square w-full mb-4 bg-black/20 rounded-lg overflow-hidden">
-            <Image src="/nft-reward-token.png" alt="NFT Preview" fill className="object-cover" />
+            <LazyImage src="/images/mint-nft-box.png" alt="NFT Preview" fill className="object-cover" />
           </div>
 
           <div className="space-y-4">

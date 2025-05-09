@@ -1,5 +1,5 @@
 "use client"
-
+import Image from "next/image"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -331,14 +331,12 @@ export function QuestsPageContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#FFA500] via-[#FF5555] to-[#00C2FF]">
+    <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="w-full py-4 px-6 bg-black/20 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="relative h-12 w-12 bg-[#00FFE0] rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">R</span>
-            </div>
+           <Link href="/" className="flex items-center gap-2">
+            <Image src="/images/logo.png" alt="Reward NFT Logo" width={48} height={48} className="rounded-lg" />
             <span className="text-white font-bold text-2xl">Reward NFT</span>
           </Link>
 
