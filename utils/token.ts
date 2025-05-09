@@ -164,7 +164,7 @@ export async function createTokenTransferTransaction(
       transaction,
     )
 
-    // Get the token decimals
+    // Get the token decimals - USDC has 6 decimals
     const tokenDecimals = tokenMintAddress.equals(DEFAULT_USDC_TOKEN_ADDRESS) ? 6 : 9
     const amountInSmallestUnit = Math.floor(amount * 10 ** tokenDecimals)
 

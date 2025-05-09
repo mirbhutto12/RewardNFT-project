@@ -53,7 +53,7 @@ export function WalletBalance({ className = "", showSol = true, showUsdc = true,
       ) : (
         <div className="flex flex-col gap-1">
           {showSol && solBalance !== null && <span>{solBalance.toFixed(4)} SOL</span>}
-          {showUsdc && usdcBalance !== null && <span>{usdcBalance.toFixed(2)} USDC</span>}
+          {showUsdc && usdcBalance !== null && usdcBalance !== undefined && <span>{usdcBalance.toFixed(2)} USDC</span>}
           {solBalance === null && usdcBalance === null && <span className="text-white/60">Error loading balance</span>}
         </div>
       )}

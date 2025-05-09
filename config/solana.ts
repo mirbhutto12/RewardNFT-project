@@ -24,28 +24,28 @@ export const DEFAULT_RPC_ENDPOINT = SOLANA_RPC_ENDPOINTS[CURRENT_NETWORK]
 
 // USDC token addresses
 export const USDC_TOKEN_ADDRESS = {
-  // Use environment variable for mainnet USDC address if provided, otherwise use the official USDC address
+  // Use the official USDC address for mainnet
   mainnet: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
-  // For devnet, we'll use a mock token address or the official USDC devnet address if available
-  devnet: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
-  // For testnet, we'll use the same mock token address
-  testnet: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
+  // For devnet, use the official USDC devnet address if available, otherwise use a mock
+  devnet: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  // For testnet, use the same address as devnet
+  testnet: new PublicKey(process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
 }
 
 // Default USDC token address based on current network
 export const DEFAULT_USDC_TOKEN_ADDRESS = USDC_TOKEN_ADDRESS[CURRENT_NETWORK]
 
-// Add the USDT token addresses after the USDC token addresses
+// USDT token addresses (keeping for backward compatibility)
 export const USDT_TOKEN_ADDRESS = {
-  // Use environment variable for mainnet USDT address if provided, otherwise use a default address
-  mainnet: new PublicKey(process.env.NEXT_PUBLIC_USDT_MINT_ADDRESS || "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
-  // For devnet, we'll use a mock token address
-  devnet: new PublicKey(process.env.NEXT_PUBLIC_USDT_MINT_ADDRESS || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
-  // For testnet, we'll use the same mock token address
-  testnet: new PublicKey(process.env.NEXT_PUBLIC_USDT_MINT_ADDRESS || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
+  // Use the same USDC address for USDT to consolidate to a single token
+  mainnet: new PublicKey(process.env.NEXT_PUBLIC_USDT_MINT_ADDRESS || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  // For devnet, use the same address as USDC
+  devnet: new PublicKey(process.env.NEXT_PUBLIC_USDT_MINT_ADDRESS || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  // For testnet, use the same address as USDC
+  testnet: new PublicKey(process.env.NEXT_PUBLIC_USDT_MINT_ADDRESS || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
 }
 
-// Default USDT token address based on current network
+// Default USDT token address based on current network (now same as USDC)
 export const DEFAULT_USDT_TOKEN_ADDRESS = USDT_TOKEN_ADDRESS[CURRENT_NETWORK]
 
 // Platform wallet address to receive payments

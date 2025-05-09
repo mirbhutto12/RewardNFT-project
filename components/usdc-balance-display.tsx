@@ -1,43 +1,33 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Connection, PublicKey } from "@solana/web3.js"
-import { DEFAULT_RPC_ENDPOINT, DEFAULT_USDC_TOKEN_ADDRESS } from "@/config/solana"
-import { getTokenBalance } from "@/utils/token"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useWallet } from "@/contexts/wallet-context"
+import { Loader2 } from "lucide-react"
 
 interface UsdcBalanceDisplayProps {
-  walletAddress: string
   className?: string
+  publicKey?: any
 }
 
-export function UsdcBalanceDisplay({ walletAddress, className = "" }: UsdcBalanceDisplayProps) {
-  const [balance, setBalance] = useState<number | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export function UsdcBalanceDisplay({ className = "", publicKey }: UsdcBalanceDisplayProps) {
+  const walletContext = useWallet()
+  const { connected, usdcBalance, refreshBalances } = walletContext
+  const [loading, setLoading] = useState(false)
+  const walletPublicKey = publicKey || walletContext.publicKey
 
   useEffect(() => {
     const fetchBalance = async () => {
-      if (!walletAddress) {
-        setBalance(null)
-        setIsLoading(false)
+      if (!connected || !walletPublicKey) {
         return
       }
 
       try {
-        setIsLoading(true)
-        setError(null)
-
-        const connection = new Connection(DEFAULT_RPC_ENDPOINT, "confirmed")
-        const publicKey = new PublicKey(walletAddress)
-
-        const usdcBalance = await getTokenBalance(connection, publicKey, DEFAULT_USDC_TOKEN_ADDRESS)
-        setBalance(usdcBalance)
-      } catch (err: any) {
-        console.error("Error fetching USDC balance:", err)
-        setError(err.message || "Failed to fetch USDC balance")
+        setLoading(true)
+        await refreshBalances()
+      } catch (error) {
+        console.error("Error fetching balance:", error)
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
@@ -47,15 +37,22 @@ export function UsdcBalanceDisplay({ walletAddress, className = "" }: UsdcBalanc
     const intervalId = setInterval(fetchBalance, 30000)
 
     return () => clearInterval(intervalId)
-  }, [walletAddress])
+  }, [walletPublicKey, connected, refreshBalances])
 
-  if (isLoading) {
-    return <Skeleton className={`h-6 w-24 ${className}`} />
-  }
-
-  if (error) {
-    return <span className={`text-red-500 text-sm ${className}`}>Error: {error}</span>
-  }
-
-  return <span className={className}>{balance !== null ? `${balance.toFixed(2)} USDC` : "No USDC"}</span>
+  return (
+    <div className={`text-white ${className}`}>
+      {!connected ? (
+        <span className="text-white/60">Wallet not connected</span>
+      ) : loading ? (
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-white/60" />
+          <span>Loading balance...</span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1">
+          <span>{usdcBalance !== null && usdcBalance !== undefined ? usdcBalance.toFixed(2) : "0.00"} USDC</span>
+        </div>
+      )}
+    </div>
+  )
 }

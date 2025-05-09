@@ -1,39 +1,55 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useWallet } from "@/contexts/wallet-context"
 import { Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useEffect, useState } from "react"
+import { getTokenBalance } from "@/utils/token"
+import { PublicKey } from "@solana/web3.js"
 
-interface UsdtBalanceDisplayProps {
+interface UsdcBalanceDisplayProps {
   className?: string
+  publicKey?: any
 }
 
-export function UsdtBalanceDisplay({ className = "" }: UsdtBalanceDisplayProps) {
-  const { connected, usdcBalance, refreshBalances } = useWallet()
+export function UsdtBalanceDisplay({ className = "", publicKey }: UsdcBalanceDisplayProps) {
+  const walletContext = useWallet()
+  const { connected, connection } = walletContext
   const [loading, setLoading] = useState(false)
+  const [usdcBalance, setUsdcBalance] = useState<number | null>(null)
+  const walletPublicKey = publicKey || walletContext.publicKey
 
-  const handleRefresh = async () => {
-    if (!connected) return
+  // Get the USDC token address from environment variables
+  const usdcMintAddress = process.env.NEXT_PUBLIC_USDC_MINT_ADDRESS || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
-    setLoading(true)
+  const fetchBalance = async () => {
+    if (!connected || !walletPublicKey || !connection) {
+      return
+    }
+
     try {
-      await refreshBalances()
+      setLoading(true)
+      // Directly fetch the USDC balance using the token utility
+      const balance = await getTokenBalance(connection, walletPublicKey, new PublicKey(usdcMintAddress))
+      setUsdcBalance(balance)
     } catch (error) {
-      console.error("Error refreshing balance:", error)
+      console.error("Error fetching USDC balance:", error)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (connected) {
-      handleRefresh()
-    }
-  }, [connected])
+    fetchBalance()
 
-  if (!connected) {
-    return null
+    // Set up an interval to refresh the balance every 30 seconds
+    const intervalId = setInterval(fetchBalance, 30000)
+
+    return () => clearInterval(intervalId)
+  }, [walletPublicKey, connected, connection])
+
+  const handleRefresh = () => {
+    fetchBalance()
   }
 
   return (
@@ -42,7 +58,7 @@ export function UsdtBalanceDisplay({ className = "" }: UsdtBalanceDisplayProps) 
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          `${usdcBalance !== null ? usdcBalance.toFixed(2) : "0.00"} USDC`
+          `${usdcBalance !== null && usdcBalance !== undefined ? usdcBalance.toFixed(2) : "0.00"} USDC`
         )}
       </span>
       <Button

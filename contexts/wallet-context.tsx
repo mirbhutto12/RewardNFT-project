@@ -1,244 +1,334 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { Connection, PublicKey, type Transaction } from "@solana/web3.js"
-import { DEFAULT_RPC_ENDPOINT, DEFAULT_USDC_TOKEN_ADDRESS } from "@/config/solana"
-import { getTokenBalance } from "@/utils/token"
-import {
-  type WalletProvider as WalletProviderUtil,
-  detectWallets,
-  getWalletProvider,
-  isPhantomInstalled,
-  isSolflareInstalled,
-} from "@/utils/wallet-providers"
+import type React from "react"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { PublicKey } from "@solana/web3.js"
+import { toast } from "@/components/ui/use-toast"
+import { detectWallets, getWalletProvider, type WalletProvider } from "@/utils/wallet-providers"
+import { isMobileDevice } from "@/utils/mobile-wallet-adapter"
 
+// Define the wallet context type
 interface WalletContextType {
   connected: boolean
-  publicKey: PublicKey | null
-  connection: Connection
-  solBalance: number
-  usdcBalance: number
   connecting: boolean
-  connectWallet: (walletName?: string) => Promise<void>
-  disconnectWallet: () => void
-  signAndSendTransaction: (transaction: Transaction) => Promise<string>
-  refreshBalances: () => Promise<void>
+  publicKey: PublicKey | null
   currentWallet: string | null
   availableWallets: Array<{
     name: string
     icon: string
     installed: boolean
-    url: string
   }>
+  connectWallet: (walletName: string) => Promise<void>
+  disconnectWallet: () => Promise<void>
+  signMessage: (message: Uint8Array) => Promise<{ signature: Uint8Array; publicKey: PublicKey }>
+  signTransaction: (transaction: any) => Promise<any>
+  signAllTransactions: (transactions: any[]) => Promise<any[]>
+  sendTransaction: (transaction: any) => Promise<string>
+  isMobile: boolean
 }
 
-const WalletContext = createContext<WalletContextType>({
-  connected: false,
-  publicKey: null,
-  connection: new Connection(DEFAULT_RPC_ENDPOINT),
-  solBalance: 0,
-  usdcBalance: 0,
-  connecting: false,
-  connectWallet: async () => {},
-  disconnectWallet: () => {},
-  signAndSendTransaction: async () => "",
-  refreshBalances: async () => {},
-  currentWallet: null,
-  availableWallets: [],
-})
+// Create the wallet context
+const WalletContext = createContext<WalletContextType | undefined>(undefined)
 
-export const useWallet = () => useContext(WalletContext)
-
+// Define the wallet provider props
 interface WalletProviderProps {
-  children: ReactNode
+  children: React.ReactNode
 }
 
+// Create the wallet provider component
 export function WalletProvider({ children }: WalletProviderProps) {
   const [connected, setConnected] = useState(false)
-  const [publicKey, setPublicKey] = useState<PublicKey | null>(null)
-  const [solBalance, setSolBalance] = useState(0)
-  const [usdcBalance, setUsdcBalance] = useState(0)
   const [connecting, setConnecting] = useState(false)
-  const [connection] = useState(new Connection(DEFAULT_RPC_ENDPOINT))
+  const [publicKey, setPublicKey] = useState<PublicKey | null>(null)
   const [currentWallet, setCurrentWallet] = useState<string | null>(null)
-  const [currentProvider, setCurrentProvider] = useState<WalletProviderUtil | null>(null)
+  const [walletProvider, setWalletProvider] = useState<WalletProvider | null>(null)
   const [availableWallets, setAvailableWallets] = useState<
     Array<{
       name: string
       icon: string
       installed: boolean
-      url: string
     }>
   >([])
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Check for mobile device
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsMobile(isMobileDevice())
+    }
+  }, [])
 
   // Detect available wallets
   useEffect(() => {
-    const wallets = detectWallets()
-    setAvailableWallets(
-      wallets.map((wallet) => ({
-        name: wallet.name,
-        icon: wallet.icon,
-        installed: wallet.installed,
-        url: wallet.url,
-      })),
-    )
+    if (typeof window !== "undefined") {
+      const wallets = detectWallets()
+      setAvailableWallets(wallets)
+    }
   }, [])
 
-  // Check if wallet is already connected on mount
+  // Handle wallet connection events
   useEffect(() => {
-    const checkWalletConnection = async () => {
-      // Try to reconnect to Phantom
-      if (isPhantomInstalled()) {
+    if (walletProvider) {
+      const handleConnect = (publicKey: { toString: () => string }) => {
         try {
-          const provider = getWalletProvider("Phantom")
-          if (provider) {
-            const response = await provider.connect({ onlyIfTrusted: true })
-            const walletPublicKey = new PublicKey(response.publicKey.toString())
-
-            setPublicKey(walletPublicKey)
-            setConnected(true)
-            setCurrentWallet("Phantom")
-            setCurrentProvider(provider)
-
-            // Refresh balances
-            refreshBalances(walletPublicKey)
-          }
+          const newPublicKey = new PublicKey(publicKey.toString())
+          setPublicKey(newPublicKey)
+          setConnected(true)
+          toast({
+            title: "Wallet Connected",
+            description: `Connected to ${newPublicKey.toString().slice(0, 4)}...${newPublicKey.toString().slice(-4)}`,
+          })
         } catch (error) {
-          // Wallet not connected or not trusted, that's okay
-          console.log("Phantom wallet not connected:", error)
+          console.error("Error handling connect event:", error)
         }
       }
 
-      // Try to reconnect to Solflare
-      if (isSolflareInstalled() && !connected) {
-        try {
-          const provider = getWalletProvider("Solflare")
-          if (provider) {
-            const response = await provider.connect({ onlyIfTrusted: true })
-            const walletPublicKey = new PublicKey(response.publicKey.toString())
+      const handleDisconnect = () => {
+        setPublicKey(null)
+        setConnected(false)
+        setCurrentWallet(null)
+        setWalletProvider(null)
+        toast({
+          title: "Wallet Disconnected",
+          description: "Your wallet has been disconnected",
+        })
+      }
 
-            setPublicKey(walletPublicKey)
-            setConnected(true)
-            setCurrentWallet("Solflare")
-            setCurrentProvider(provider)
+      // Add event listeners
+      walletProvider.on("connect", handleConnect)
+      walletProvider.on("disconnect", handleDisconnect)
 
-            // Refresh balances
-            refreshBalances(walletPublicKey)
+      // Clean up event listeners
+      return () => {
+        walletProvider.off("connect", handleConnect)
+        walletProvider.off("disconnect", handleDisconnect)
+      }
+    }
+  }, [walletProvider])
+
+  // Check for wallet connection on page load
+  useEffect(() => {
+    const checkWalletConnection = async () => {
+      // For mobile, we rely on deep linking and don't auto-connect
+      if (isMobile) return
+
+      // For browser extensions, try to auto-connect
+      try {
+        const wallets = detectWallets()
+        for (const wallet of wallets) {
+          if (wallet.installed && wallet.provider) {
+            try {
+              // Check if already connected
+              if (wallet.provider.publicKey) {
+                const publicKey = new PublicKey(wallet.provider.publicKey.toString())
+                setPublicKey(publicKey)
+                setConnected(true)
+                setCurrentWallet(wallet.name)
+                setWalletProvider(wallet.provider)
+                break
+              }
+            } catch (error) {
+              console.error(`Error checking ${wallet.name} connection:`, error)
+            }
           }
-        } catch (error) {
-          // Wallet not connected or not trusted, that's okay
-          console.log("Solflare wallet not connected:", error)
         }
+      } catch (error) {
+        console.error("Error checking wallet connection:", error)
       }
     }
 
     checkWalletConnection()
-  }, [])
+  }, [isMobile])
 
-  // Refresh balances when connected
-  const refreshBalances = async (walletPublicKey?: PublicKey) => {
-    const key = walletPublicKey || publicKey
-    if (!key) return
-
-    try {
-      // Get SOL balance
-      const solBal = await connection.getBalance(key)
-      setSolBalance(solBal / 1e9) // Convert lamports to SOL
-
-      // Get USDC balance
-      const usdcBal = await getTokenBalance(connection, key, new PublicKey(DEFAULT_USDC_TOKEN_ADDRESS))
-      setUsdcBalance(usdcBal)
-    } catch (error) {
-      console.error("Error refreshing balances:", error)
-    }
-  }
-
-  // Connect wallet
-  const connectWallet = async (walletName = "Phantom") => {
-    const provider = getWalletProvider(walletName)
-
-    if (!provider) {
-      // If wallet is not installed, open the installation page
-      const wallet = availableWallets.find((w) => w.name.toLowerCase() === walletName.toLowerCase())
-      if (wallet) {
-        window.open(wallet.url, "_blank")
-      }
-      return
-    }
-
+  // Connect to wallet
+  const connectWallet = useCallback(async (walletName: string) => {
     try {
       setConnecting(true)
-      const response = await provider.connect()
-      const walletPublicKey = new PublicKey(response.publicKey.toString())
 
-      setPublicKey(walletPublicKey)
+      // Get wallet provider
+      const provider = getWalletProvider(walletName)
+      if (!provider) {
+        throw new Error(`${walletName} wallet is not installed`)
+      }
+
+      // Connect to wallet
+      const response = await provider.connect()
+      const newPublicKey = new PublicKey(response.publicKey.toString())
+
+      // Update state
+      setPublicKey(newPublicKey)
       setConnected(true)
       setCurrentWallet(walletName)
-      setCurrentProvider(provider)
+      setWalletProvider(provider)
 
-      // Refresh balances
-      await refreshBalances(walletPublicKey)
-    } catch (error) {
-      console.error(`Error connecting ${walletName} wallet:`, error)
+      toast({
+        title: "Wallet Connected",
+        description: `Connected to ${newPublicKey.toString().slice(0, 4)}...${newPublicKey.toString().slice(-4)}`,
+      })
+    } catch (error: any) {
+      console.error("Error connecting wallet:", error)
+
+      // Handle user rejection
+      if (error.code === 4001) {
+        toast({
+          title: "Connection Cancelled",
+          description: "You cancelled the connection request",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: error.message || "Failed to connect wallet",
+          variant: "destructive",
+        })
+      }
+
+      throw error
     } finally {
       setConnecting(false)
     }
-  }
+  }, [])
 
   // Disconnect wallet
-  const disconnectWallet = () => {
-    if (currentProvider) {
+  const disconnectWallet = useCallback(async () => {
+    if (walletProvider) {
       try {
-        currentProvider.disconnect()
+        await walletProvider.disconnect()
+        setPublicKey(null)
+        setConnected(false)
+        setCurrentWallet(null)
+        setWalletProvider(null)
+
+        toast({
+          title: "Wallet Disconnected",
+          description: "Your wallet has been disconnected",
+        })
       } catch (error) {
         console.error("Error disconnecting wallet:", error)
+        toast({
+          title: "Disconnection Failed",
+          description: "Failed to disconnect wallet",
+          variant: "destructive",
+        })
+        throw error
       }
     }
+  }, [walletProvider])
 
-    setPublicKey(null)
-    setConnected(false)
-    setSolBalance(0)
-    setUsdcBalance(0)
-    setCurrentWallet(null)
-    setCurrentProvider(null)
-  }
+  // Sign message
+  const signMessage = useCallback(
+    async (message: Uint8Array) => {
+      if (!walletProvider || !connected) {
+        throw new Error("Wallet not connected")
+      }
 
-  // Sign and send transaction
-  const signAndSendTransaction = async (transaction: Transaction): Promise<string> => {
-    if (!connected || !currentProvider) {
-      throw new Error("Wallet not connected")
-    }
+      try {
+        const { signature, publicKey } = await walletProvider.signMessage(message)
+        return { signature, publicKey: new PublicKey(publicKey.toString()) }
+      } catch (error) {
+        console.error("Error signing message:", error)
+        toast({
+          title: "Signing Failed",
+          description: "Failed to sign message",
+          variant: "destructive",
+        })
+        throw error
+      }
+    },
+    [walletProvider, connected],
+  )
 
-    try {
-      const { signature } = await currentProvider.signAndSendTransaction(transaction)
+  // Sign transaction
+  const signTransaction = useCallback(
+    async (transaction: any) => {
+      if (!walletProvider || !connected) {
+        throw new Error("Wallet not connected")
+      }
 
-      // Wait for confirmation
-      await connection.confirmTransaction(signature, "confirmed")
+      try {
+        return await walletProvider.signTransaction(transaction)
+      } catch (error) {
+        console.error("Error signing transaction:", error)
+        toast({
+          title: "Signing Failed",
+          description: "Failed to sign transaction",
+          variant: "destructive",
+        })
+        throw error
+      }
+    },
+    [walletProvider, connected],
+  )
 
-      // Refresh balances after transaction
-      await refreshBalances()
+  // Sign all transactions
+  const signAllTransactions = useCallback(
+    async (transactions: any[]) => {
+      if (!walletProvider || !connected) {
+        throw new Error("Wallet not connected")
+      }
 
-      return signature
-    } catch (error: any) {
-      console.error("Error signing transaction:", error)
-      throw new Error(error.message || "Failed to sign transaction")
-    }
-  }
+      try {
+        return await walletProvider.signAllTransactions(transactions)
+      } catch (error) {
+        console.error("Error signing transactions:", error)
+        toast({
+          title: "Signing Failed",
+          description: "Failed to sign transactions",
+          variant: "destructive",
+        })
+        throw error
+      }
+    },
+    [walletProvider, connected],
+  )
 
-  const value = {
+  // Send transaction
+  const sendTransaction = useCallback(
+    async (transaction: any) => {
+      if (!walletProvider || !connected) {
+        throw new Error("Wallet not connected")
+      }
+
+      try {
+        const { signature } = await walletProvider.signAndSendTransaction(transaction)
+        return signature
+      } catch (error) {
+        console.error("Error sending transaction:", error)
+        toast({
+          title: "Transaction Failed",
+          description: "Failed to send transaction",
+          variant: "destructive",
+        })
+        throw error
+      }
+    },
+    [walletProvider, connected],
+  )
+
+  // Create context value
+  const contextValue: WalletContextType = {
     connected,
-    publicKey,
-    connection,
-    solBalance,
-    usdcBalance,
     connecting,
-    connectWallet,
-    disconnectWallet,
-    signAndSendTransaction,
-    refreshBalances,
+    publicKey,
     currentWallet,
     availableWallets,
+    connectWallet,
+    disconnectWallet,
+    signMessage,
+    signTransaction,
+    signAllTransactions,
+    sendTransaction,
+    isMobile,
   }
 
-  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
+  return <WalletContext.Provider value={contextValue}>{children}</WalletContext.Provider>
+}
+
+// Create a hook to use the wallet context
+export function useWallet() {
+  const context = useContext(WalletContext)
+  if (context === undefined) {
+    throw new Error("useWallet must be used within a WalletProvider")
+  }
+  return context
 }

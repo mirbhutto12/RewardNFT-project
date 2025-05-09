@@ -11,14 +11,16 @@ interface WalletConnectButtonProps {
   variant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive"
   size?: "default" | "sm" | "lg" | "icon"
   className?: string
+  fullWidth?: boolean
 }
 
 export function WalletConnectButton({
   variant = "default",
   size = "default",
   className = "",
+  fullWidth = false,
 }: WalletConnectButtonProps) {
-  const { connected, connecting, disconnectWallet, currentWallet, availableWallets } = useWallet()
+  const { connected, connecting, disconnectWallet, currentWallet, availableWallets, isMobile } = useWallet()
   const [showWalletModal, setShowWalletModal] = useState(false)
 
   const handleClick = () => {
@@ -38,16 +40,22 @@ export function WalletConnectButton({
 
   return (
     <>
-      <Button variant={variant} size={size} className={className} onClick={handleClick} disabled={connecting}>
+      <Button
+        variant={variant}
+        size={size}
+        className={`${className} ${fullWidth ? "w-full" : ""} ${isMobile ? "py-6" : ""}`}
+        onClick={handleClick}
+        disabled={connecting}
+      >
         {connecting ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Connecting...
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            <span className="text-base">Connecting...</span>
           </>
         ) : connected ? (
           <div className="flex items-center gap-2">
             {getWalletIcon() && (
-              <div className="relative h-4 w-4">
+              <div className="relative h-5 w-5">
                 <Image
                   src={getWalletIcon()! || "/placeholder.svg"}
                   alt={currentWallet!}
@@ -56,10 +64,10 @@ export function WalletConnectButton({
                 />
               </div>
             )}
-            Disconnect
+            <span className={`${isMobile ? "text-base" : ""}`}>Disconnect</span>
           </div>
         ) : (
-          "Connect Wallet"
+          <span className={`${isMobile ? "text-base" : ""}`}>Connect Wallet</span>
         )}
       </Button>
 

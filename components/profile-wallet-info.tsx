@@ -37,6 +37,10 @@ export function ProfileWalletInfo() {
     return null
   }
 
+  // Format balances safely with fallbacks for undefined values
+  const formattedSolBalance = typeof solBalance === "number" ? solBalance.toFixed(4) : "0.0000"
+  const formattedUsdcBalance = typeof usdcBalance === "number" ? usdcBalance.toFixed(2) : "0.00"
+
   return (
     <Card className="bg-white/10 backdrop-blur-sm border-white/20">
       <CardHeader>
@@ -94,11 +98,11 @@ export function ProfileWalletInfo() {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-white/60">SOL Balance</span>
-                <span className="font-medium text-white">{solBalance.toFixed(4)} SOL</span>
+                <span className="font-medium text-white">{formattedSolBalance} SOL</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-white/60">USDC Balance</span>
-                <span className="font-medium text-white">{usdcBalance.toFixed(2)} USDC</span>
+                <span className="font-medium text-white">{formattedUsdcBalance} USDC</span>
               </div>
             </div>
 

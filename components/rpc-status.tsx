@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, CheckCircle, AlertCircle, RefreshCw } from "lucide-react"
 import { useWallet } from "@/contexts/wallet-context"
 import { toast } from "@/components/ui/use-toast"
+import { defaultConnectionManager } from "@/utils/wallet-adapter"
 
 export function RpcStatus() {
   const { connection } = useWallet()
@@ -22,8 +23,15 @@ export function RpcStatus() {
     try {
       const startTime = performance.now()
 
+      // Use the connection from context if available, otherwise use the default connection manager
+      const conn = connection || defaultConnectionManager.connection
+
+      if (!conn) {
+        throw new Error("No connection available")
+      }
+
       // Try to get a recent blockhash to test the connection
-      await connection.getLatestBlockhash()
+      await conn.getLatestBlockhash()
 
       const endTime = performance.now()
       setLatency(Math.round(endTime - startTime))
@@ -42,12 +50,19 @@ export function RpcStatus() {
   }
 
   useEffect(() => {
-    checkConnection()
+    // Add a small delay to ensure context is properly initialized
+    const timer = setTimeout(() => {
+      checkConnection()
+    }, 1000)
 
     // Check connection every 5 minutes
     const interval = setInterval(checkConnection, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [connection])
+
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+    }
+  }, [connection]) // Re-run when connection changes
 
   return (
     <Button
