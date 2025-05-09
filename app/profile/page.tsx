@@ -1,16 +1,11 @@
 import { ProfilePageContent } from "@/components/profile-page-content"
-import { TransactionSecurityDashboard } from "@/components/transaction-security-dashboard"
+import type { Metadata } from "next"
 
-export const metadata = {
-  title: "User Profile | Reward NFT Platform",
-  description: "View and edit your profile on the Reward NFT Platform",
+export const metadata: Metadata = {
+  title: "Profile | Solana Reward NFT Platform",
+  description: "View and manage your profile on the Solana Reward NFT Platform",
 }
 
 export default function ProfilePage() {
-  return (
-    <>
-      <ProfilePageContent />
-      <TransactionSecurityDashboard />
-    </>
-  )
+  return <ProfilePageContent />
 }

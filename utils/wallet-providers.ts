@@ -1,86 +1,128 @@
-// This file replaces phantom-provider.ts with a more generic approach that supports multiple wallets
+import type { PublicKey, Transaction } from "@solana/web3.js"
 
-// Type definitions for wallet providers
 export interface WalletProvider {
-  connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>
-  disconnect: () => Promise<void>
-  signAndSendTransaction: (transaction: any) => Promise<{ signature: string }>
-  signMessage: (message: Uint8Array) => Promise<{ signature: Uint8Array }>
-  on: (event: string, callback: (...args: any[]) => void) => void
-  off: (event: string, callback: (...args: any[]) => void) => void
-}
-
-export interface DetectedWallet {
   name: string
   icon: string
-  provider: WalletProvider | null
-  installed: boolean
   url: string
+  installed: boolean
+  connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: PublicKey }>
+  disconnect: () => Promise<void>
+  signAndSendTransaction: (transaction: Transaction) => Promise<{ signature: string }>
+  signMessage: (message: Uint8Array) => Promise<{ signature: Uint8Array }>
 }
 
 // Check if Phantom wallet is installed
 export function isPhantomInstalled(): boolean {
-  return typeof window !== "undefined" && window.phantom?.solana?.isPhantom
+  const phantom = (window as any).phantom
+  return phantom && phantom.solana && phantom.solana.isPhantom
 }
 
 // Check if Solflare wallet is installed
 export function isSolflareInstalled(): boolean {
-  return typeof window !== "undefined" && window.solflare?.isSolflare
-}
-
-// Get Phantom provider
-export function getPhantomProvider(): WalletProvider {
-  if (!isPhantomInstalled()) {
-    throw new Error("Phantom wallet is not installed")
-  }
-  return window.phantom.solana
-}
-
-// Get Solflare provider
-export function getSolflareProvider(): WalletProvider {
-  if (!isSolflareInstalled()) {
-    throw new Error("Solflare wallet is not installed")
-  }
-  return window.solflare
-}
-
-// Detect available wallets
-export function detectWallets(): DetectedWallet[] {
-  const wallets: DetectedWallet[] = [
-    {
-      name: "Phantom",
-      icon: "/images/phantom-icon.png",
-      provider: isPhantomInstalled() ? getPhantomProvider() : null,
-      installed: isPhantomInstalled(),
-      url: "https://phantom.app/",
-    },
-    {
-      name: "Solflare",
-      icon: "/images/solflare-icon.png",
-      provider: isSolflareInstalled() ? getSolflareProvider() : null,
-      installed: isSolflareInstalled(),
-      url: "https://solflare.com/",
-    },
-  ]
-
-  return wallets
+  const solflare = (window as any).solflare
+  return solflare && solflare.isSolflare
 }
 
 // Get a wallet provider by name
 export function getWalletProvider(name: string): WalletProvider | null {
-  const wallets = detectWallets()
-  const wallet = wallets.find((w) => w.name.toLowerCase() === name.toLowerCase())
-  return wallet?.provider || null
-}
-
-// Declare global window interface to include wallet providers
-declare global {
-  interface Window {
-    phantom?: {
-      solana?: WalletProvider
-    }
-    solflare?: WalletProvider & {
-      isSolflare: boolean
+  if (name.toLowerCase() === "phantom" && isPhantomInstalled()) {
+    return {
+      name: "Phantom",
+      icon: "/images/phantom-icon.png",
+      url: "https://phantom.app/download",
+      installed: true,
+      connect: (options) => (window as any).phantom.solana.connect(options),
+      disconnect: () => (window as any).phantom.solana.disconnect(),
+      signAndSendTransaction: (transaction) => (window as any).phantom.solana.signAndSendTransaction(transaction),
+      signMessage: (message) => (window as any).phantom.solana.signMessage(message),
     }
   }
+
+  if (name.toLowerCase() === "solflare" && isSolflareInstalled()) {
+    return {
+      name: "Solflare",
+      icon: "/images/solflare-icon.png",
+      url: "https://solflare.com/download",
+      installed: true,
+      connect: (options) => (window as any).solflare.connect(options),
+      disconnect: () => (window as any).solflare.disconnect(),
+      signAndSendTransaction: (transaction) => (window as any).solflare.signAndSendTransaction(transaction),
+      signMessage: (message) => (window as any).solflare.signMessage(message),
+    }
+  }
+
+  return null
+}
+
+// Detect available wallets
+export function detectWallets(): WalletProvider[] {
+  const wallets: WalletProvider[] = []
+
+  // Check for Phantom
+  if (isPhantomInstalled()) {
+    wallets.push({
+      name: "Phantom",
+      icon: "/images/phantom-icon.png",
+      url: "https://phantom.app/download",
+      installed: true,
+      connect: (options) => (window as any).phantom.solana.connect(options),
+      disconnect: () => (window as any).phantom.solana.disconnect(),
+      signAndSendTransaction: (transaction) => (window as any).phantom.solana.signAndSendTransaction(transaction),
+      signMessage: (message) => (window as any).phantom.solana.signMessage(message),
+    })
+  } else {
+    wallets.push({
+      name: "Phantom",
+      icon: "/images/phantom-icon.png",
+      url: "https://phantom.app/download",
+      installed: false,
+      connect: async () => {
+        throw new Error("Phantom wallet not installed")
+      },
+      disconnect: async () => {
+        throw new Error("Phantom wallet not installed")
+      },
+      signAndSendTransaction: async () => {
+        throw new Error("Phantom wallet not installed")
+      },
+      signMessage: async () => {
+        throw new Error("Phantom wallet not installed")
+      },
+    })
+  }
+
+  // Check for Solflare
+  if (isSolflareInstalled()) {
+    wallets.push({
+      name: "Solflare",
+      icon: "/images/solflare-icon.png",
+      url: "https://solflare.com/download",
+      installed: true,
+      connect: (options) => (window as any).solflare.connect(options),
+      disconnect: () => (window as any).solflare.disconnect(),
+      signAndSendTransaction: (transaction) => (window as any).solflare.signAndSendTransaction(transaction),
+      signMessage: (message) => (window as any).solflare.signMessage(message),
+    })
+  } else {
+    wallets.push({
+      name: "Solflare",
+      icon: "/images/solflare-icon.png",
+      url: "https://solflare.com/download",
+      installed: false,
+      connect: async () => {
+        throw new Error("Solflare wallet not installed")
+      },
+      disconnect: async () => {
+        throw new Error("Solflare wallet not installed")
+      },
+      signAndSendTransaction: async () => {
+        throw new Error("Solflare wallet not installed")
+      },
+      signMessage: async () => {
+        throw new Error("Solflare wallet not installed")
+      },
+    })
+  }
+
+  return wallets
 }

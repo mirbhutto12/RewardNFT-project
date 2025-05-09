@@ -10,14 +10,18 @@ import { TransactionStatus } from "@/components/transaction-status"
 import { createNftMintTransaction } from "@/utils/nft"
 import { toast } from "@/components/ui/use-toast"
 import { NFT_METADATA } from "@/config/solana"
+import { storeNftMetadata } from "@/services/nft-service"
+import { updateLeaderboardEntry } from "@/services/leaderboard-service"
+import { trackReferral } from "@/services/referral-service"
 
 interface NftMintingProps {
   onSuccess?: () => void
   onError?: (error: Error) => void
+  referralCode?: string
 }
 
-export function NftMinting({ onSuccess, onError }: NftMintingProps) {
-  const { connected, publicKey, connection, signTransaction } = useWallet()
+export function NftMinting({ onSuccess, onError, referralCode }: NftMintingProps) {
+  const { connected, publicKey, connection, signAndSendTransaction } = useWallet()
   const [mintingStatus, setMintingStatus] = useState<
     "idle" | "preparing" | "signing" | "confirming" | "success" | "error"
   >("idle")
@@ -46,30 +50,41 @@ export function NftMinting({ onSuccess, onError }: NftMintingProps) {
       setMintingStatus("signing")
 
       // Sign the transaction
-      const signedTransaction = await signTransaction(transaction)
-
-      // Partially sign with the mint keypair
-      signedTransaction.partialSign(mint)
-
-      // Update status to confirming
-      setMintingStatus("confirming")
-
-      // Send the signed transaction
-      const serializedTransaction = signedTransaction.serialize()
-      const signature = await connection.sendRawTransaction(serializedTransaction, {
-        skipPreflight: false,
-        preflightCommitment: "confirmed",
-      })
+      const signature = await signAndSendTransaction(transaction)
 
       // Set the transaction signature for tracking
       setTransactionSignature(signature)
 
-      // Confirm the transaction
-      await connection.confirmTransaction({
-        signature,
-        blockhash: transaction.recentBlockhash!,
-        lastValidBlockHeight: transaction.lastValidBlockHeight!,
+      // Update status to confirming
+      setMintingStatus("confirming")
+
+      // Wait for confirmation
+      await connection.confirmTransaction(signature, "confirmed")
+
+      // Store NFT metadata in Supabase
+      const mintAddress = mint.publicKey.toString()
+      const walletAddress = publicKey.toString()
+
+      await storeNftMetadata({
+        mintAddress,
+        name: NFT_METADATA.name,
+        description: NFT_METADATA.description,
+        imageUrl: NFT_METADATA.image,
+        attributes: NFT_METADATA.attributes,
+        ownerWallet: walletAddress,
       })
+
+      // Update leaderboard with mint count
+      await updateLeaderboardEntry({
+        walletAddress,
+        mintCount: 1,
+        totalPoints: 50, // 50 points for minting an NFT
+      })
+
+      // Process referral if provided
+      if (referralCode) {
+        await trackReferral(referralCode, walletAddress)
+      }
 
       // Update status to success
       setMintingStatus("success")

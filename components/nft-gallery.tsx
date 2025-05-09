@@ -1,22 +1,22 @@
 "use client"
 
 import Link from "next/link"
-
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Loader2, ExternalLink } from "lucide-react"
 import { useWallet } from "@/contexts/wallet-context"
-import { NFT_METADATA } from "@/config/solana"
+import { getNftsByOwnerWallet } from "@/services/nft-service"
+import type { NftMetadata } from "@/services/nft-service"
 
 interface NftGalleryProps {
   className?: string
 }
 
 export function NftGallery({ className = "" }: NftGalleryProps) {
-  const { connected, publicKey, connection, explorerUrl } = useWallet()
+  const { connected, publicKey, explorerUrl } = useWallet()
   const [loading, setLoading] = useState(false)
-  const [nfts, setNfts] = useState<any[]>([])
+  const [nfts, setNfts] = useState<NftMetadata[]>([])
 
   // Fetch user's NFTs
   useEffect(() => {
@@ -25,21 +25,9 @@ export function NftGallery({ className = "" }: NftGalleryProps) {
 
       setLoading(true)
       try {
-        // In a real implementation, you would fetch the user's NFTs from the blockchain
-        // For now, we'll simulate this with a timeout and hardcoded data
-        await new Promise((resolve) => setTimeout(resolve, 1500))
-
-        // Simulate having the NFT if we're on the success page
-        setNfts([
-          {
-            mint: "simulated-mint-address",
-            name: NFT_METADATA.name,
-            symbol: NFT_METADATA.symbol,
-            image: NFT_METADATA.image,
-            description: NFT_METADATA.description,
-            attributes: NFT_METADATA.attributes,
-          },
-        ])
+        const walletAddress = publicKey.toString()
+        const userNfts = await getNftsByOwnerWallet(walletAddress)
+        setNfts(userNfts)
       } catch (error) {
         console.error("Error fetching NFTs:", error)
       } finally {
@@ -48,7 +36,7 @@ export function NftGallery({ className = "" }: NftGalleryProps) {
     }
 
     fetchNfts()
-  }, [connected, publicKey, connection])
+  }, [connected, publicKey])
 
   if (!connected) {
     return (
@@ -83,16 +71,20 @@ export function NftGallery({ className = "" }: NftGalleryProps) {
     <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${className}`}>
       {nfts.map((nft, index) => (
         <div
-          key={index}
+          key={nft.id || index}
           className="bg-white/10 rounded-xl overflow-hidden border border-white/20 hover:border-white/40 transition-colors"
         >
           <div className="aspect-square relative">
-            <Image src={nft.image || "/placeholder.svg"} alt={nft.name} fill className="object-cover" />
+            <Image src={nft.imageUrl || "/placeholder.svg"} alt={nft.name} fill className="object-cover" />
           </div>
           <div className="p-4">
             <div className="flex justify-between items-start mb-2">
               <h3 className="text-lg font-semibold text-white">{nft.name}</h3>
-              <span className="bg-purple-500/30 text-purple-200 text-xs rounded-full px-2 py-1">{nft.symbol}</span>
+              {nft.attributes?.symbol && (
+                <span className="bg-purple-500/30 text-purple-200 text-xs rounded-full px-2 py-1">
+                  {nft.attributes.symbol}
+                </span>
+              )}
             </div>
             <p className="text-white/60 text-sm mb-4">{nft.description}</p>
             <div className="flex justify-between items-center">
@@ -100,7 +92,7 @@ export function NftGallery({ className = "" }: NftGalleryProps) {
                 variant="ghost"
                 size="sm"
                 className="text-white/80 hover:text-white hover:bg-white/10"
-                onClick={() => window.open(`${explorerUrl}/address/${nft.mint}`, "_blank")}
+                onClick={() => window.open(`${explorerUrl}/address/${nft.mintAddress}`, "_blank")}
               >
                 <ExternalLink className="h-4 w-4 mr-1" /> View on Explorer
               </Button>
