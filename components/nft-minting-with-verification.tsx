@@ -5,7 +5,7 @@ import { useWallet } from "@/contexts/wallet-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, CheckCircle2, AlertCircle, Shield } from "lucide-react"
-import { LazyImage } from "./lazy-image"
+import Image from "next/image"
 import { NFT_MINT_COST_USDC, DEFAULT_USDC_TOKEN_ADDRESS, PLATFORM_WALLET_ADDRESS, NFT_METADATA } from "@/config/solana"
 import { createTokenTransferTransaction } from "@/utils/token"
 import { toast } from "@/components/ui/use-toast"
@@ -20,13 +20,13 @@ export function NftMintingWithVerification({ onSuccess }: NftMintingWithVerifica
   const [status, setStatus] = useState<"idle" | "paying" | "minting" | "verifying" | "success" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
   const [txSignature, setTxSignature] = useState<string | null>(null)
+  const [imageError, setImageError] = useState(false)
   const [verification, setVerification] = useState<{
     status: "verified" | "pending" | "failed"
     message: string
     details: {
       metadataVerified: boolean
       imageVerified: boolean
-      onChainVerified: boolean
       onChainVerified: boolean
     }
   } | null>(null)
@@ -121,13 +121,22 @@ export function NftMintingWithVerification({ onSuccess }: NftMintingWithVerifica
         <CardContent className="p-6">
           <div className="relative aspect-square w-full mb-4 bg-black/20 rounded-lg overflow-hidden">
             <div className="absolute inset-0 flex items-center justify-center">
-              <LazyImage
-                src="/images/mint-nft-box.png"
-                alt="NFT Preview"
-                width={300}
-                height={300}
-                className="object-contain"
-              />
+              {imageError ? (
+                <div className="w-full h-full flex items-center justify-center bg-gray-800 rounded-lg">
+                  <span className="text-white">NFT Preview</span>
+                </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Image
+                    src="/mystery-box.png"
+                    alt="NFT Preview"
+                    width={300}
+                    height={300}
+                    className="object-contain"
+                    onError={() => setImageError(true)}
+                  />
+                </div>
+              )}
             </div>
             {verification && (
               <div className="absolute top-2 right-2">

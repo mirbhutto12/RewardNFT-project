@@ -5,7 +5,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Gift, Check, AlertCircle, Clock } from "lucide-react"
 import { MobileNav } from "@/components/mobile-nav"
-import { Footer } from "@/components/footer"
 import { useWallet } from "@/contexts/wallet-context"
 import { getAirdropsForRecipient, type Airdrop } from "@/utils/airdrop"
 import { useToast } from "@/components/ui/use-toast"
@@ -219,8 +218,6 @@ export function UserAirdropContent() {
           )}
         </div>
       </main>
-
-      <Footer />
     </div>
   )
 }

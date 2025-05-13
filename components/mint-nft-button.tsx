@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useWallet } from "@/contexts/wallet-context"
 import { NFT_MINT_COST_USDC, DEFAULT_USDC_TOKEN_ADDRESS, PLATFORM_WALLET_ADDRESS } from "@/config/solana"
 import { createTokenTransferTransaction } from "@/utils/token"
@@ -13,10 +14,10 @@ interface MintNftButtonProps {
   className?: string
 }
 
-// Replace the existing MintNftButton component with this updated version
 export function MintNftButton({ onSuccess, className = "" }: MintNftButtonProps) {
   const { publicKey, connected, connection, usdcBalance } = useWallet()
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   const createMintTransaction = async (): Promise<Transaction> => {
     if (!connected || !publicKey) {
@@ -39,7 +40,15 @@ export function MintNftButton({ onSuccess, className = "" }: MintNftButtonProps)
 
   const handleSuccess = (signature: string) => {
     // Simulate NFT minting process with a delay
+    setIsLoading(true)
+
     setTimeout(() => {
+      // Store the mint status in localStorage for demo purposes
+      // In a real app, you would verify this on-chain or with your backend
+      if (publicKey) {
+        localStorage.setItem(`nft_minted_${publicKey.toString()}`, "true")
+      }
+
       toast({
         title: "NFT Minted Successfully",
         description: "Your NFT has been minted and added to your wallet",
@@ -49,10 +58,15 @@ export function MintNftButton({ onSuccess, className = "" }: MintNftButtonProps)
       if (onSuccess) {
         onSuccess(signature)
       }
+
+      // Redirect to the success page
+      router.push("/mint/success")
+      setIsLoading(false)
     }, 2000)
   }
 
   const handleError = (error: Error) => {
+    setIsLoading(false)
     toast({
       title: "Minting Failed",
       description: error.message || "An error occurred during the minting process",
@@ -71,13 +85,15 @@ export function MintNftButton({ onSuccess, className = "" }: MintNftButtonProps)
       }}
       confirmationMessage="Your NFT is being minted and will appear in your wallet shortly."
       className={className}
-      disabled={!connected || !usdcBalance || usdcBalance < NFT_MINT_COST_USDC}
+      disabled={isLoading || !connected || !usdcBalance || usdcBalance < NFT_MINT_COST_USDC}
     >
-      {!connected
-        ? "Connect Wallet to Mint"
-        : !usdcBalance || usdcBalance < NFT_MINT_COST_USDC
-          ? `Insufficient USDC (${usdcBalance || 0} USDC)`
-          : "Mint NFT"}
+      {isLoading
+        ? "Minting..."
+        : !connected
+          ? "Connect Wallet to Mint"
+          : !usdcBalance || usdcBalance < NFT_MINT_COST_USDC
+            ? `Insufficient USDC (${usdcBalance || 0} USDC)`
+            : "Mint NFT"}
     </SecureTransactionButton>
   )
 }

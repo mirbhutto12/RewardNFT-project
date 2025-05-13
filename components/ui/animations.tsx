@@ -2,6 +2,8 @@
 
 import { motion, AnimatePresence } from "framer-motion"
 import type { ReactNode } from "react"
+import { useEffect, useState } from "react"
+import ReactConfetti from "react-confetti"
 
 // Fade In animation component
 export const FadeIn = ({
@@ -314,39 +316,44 @@ export const ErrorAnimation = ({ size = 100 }: { size?: number }) => {
 }
 
 // Confetti animation for celebrations
-export const Confetti = ({ duration = 3000 }: { duration?: number }) => {
+export function Confetti() {
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+  const [pieces, setPieces] = useState(200)
+
+  useEffect(() => {
+    // Set initial dimensions
+    setDimensions({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    })
+
+    // Handle resize
+    const handleResize = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
+    }
+
+    // Gradually reduce confetti pieces
+    const timer = setTimeout(() => {
+      setPieces(50)
+    }, 3000)
+
+    window.addEventListener("resize", handleResize)
+    return () => {
+      window.removeEventListener("resize", handleResize)
+      clearTimeout(timer)
+    }
+  }, [])
+
   return (
-    <div className="fixed inset-0 pointer-events-none z-50">
-      {Array.from({ length: 100 }).map((_, i) => (
-        <motion.div
-          key={i}
-          initial={{
-            x: Math.random() * window.innerWidth,
-            y: -20,
-            scale: Math.random() * 0.5 + 0.5,
-            opacity: 1,
-          }}
-          animate={{
-            y: window.innerHeight + 20,
-            opacity: 0,
-          }}
-          transition={{
-            duration: Math.random() * 2 + 1,
-            delay: Math.random() * 0.5,
-            ease: "easeOut",
-          }}
-          style={{
-            position: "absolute",
-            width: "10px",
-            height: "10px",
-            backgroundColor: ["#FF5555", "#00FFE0", "#FFC93C", "#FF2E63", "#00C2FF", "#FFA500", "#9C27B0"][
-              Math.floor(Math.random() * 7)
-            ],
-            borderRadius: Math.random() > 0.5 ? "50%" : "0",
-            transform: `rotate(${Math.random() * 360}deg)`,
-          }}
-        />
-      ))}
-    </div>
+    <ReactConfetti
+      width={dimensions.width}
+      height={dimensions.height}
+      numberOfPieces={pieces}
+      recycle={false}
+      gravity={0.2}
+    />
   )
 }

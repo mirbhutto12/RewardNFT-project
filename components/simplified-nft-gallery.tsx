@@ -10,12 +10,14 @@ import { NFT_METADATA } from "@/config/solana"
 
 interface SimplifiedNftGalleryProps {
   className?: string
+  maxDisplay?: number
 }
 
-export function SimplifiedNftGallery({ className = "" }: SimplifiedNftGalleryProps) {
-  const { connected, publicKey, explorerUrl } = useWallet()
+export function SimplifiedNftGallery({ className = "", maxDisplay = 4 }: SimplifiedNftGalleryProps) {
+  const { connected, publicKey, connection, explorerUrl } = useWallet()
   const [loading, setLoading] = useState(false)
   const [nfts, setNfts] = useState<any[]>([])
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
 
   // Fetch user's NFTs
   useEffect(() => {
@@ -29,16 +31,28 @@ export function SimplifiedNftGallery({ className = "" }: SimplifiedNftGalleryPro
         await new Promise((resolve) => setTimeout(resolve, 1500))
 
         // Simulate having the NFT if we're on the success page
-        setNfts([
-          {
-            mint: "simulated-mint-address",
-            name: NFT_METADATA.name,
-            symbol: NFT_METADATA.symbol,
-            image: NFT_METADATA.image,
-            description: NFT_METADATA.description,
-            attributes: NFT_METADATA.attributes,
-          },
-        ])
+        setNfts(
+          [
+            {
+              id: "nft-1",
+              mint: "simulated-mint-address-1",
+              name: NFT_METADATA.name,
+              symbol: NFT_METADATA.symbol,
+              image: "/placeholder.svg?key=kmd0b",
+              description: NFT_METADATA.description,
+              attributes: NFT_METADATA.attributes,
+            },
+            {
+              id: "nft-2",
+              mint: "simulated-mint-address-2",
+              name: "Cosmic Reward",
+              symbol: "COSMIC",
+              image: "/placeholder.svg?key=7jle6",
+              description: "A cosmic reward for your achievements",
+              attributes: [],
+            },
+          ].slice(0, maxDisplay),
+        )
       } catch (error) {
         console.error("Error fetching NFTs:", error)
       } finally {
@@ -47,7 +61,14 @@ export function SimplifiedNftGallery({ className = "" }: SimplifiedNftGalleryPro
     }
 
     fetchNfts()
-  }, [connected, publicKey])
+  }, [connected, publicKey, connection, explorerUrl, maxDisplay])
+
+  const handleImageError = (id: string) => {
+    setImageErrors((prev) => ({
+      ...prev,
+      [id]: true,
+    }))
+  }
 
   if (!connected) {
     return (
@@ -80,13 +101,25 @@ export function SimplifiedNftGallery({ className = "" }: SimplifiedNftGalleryPro
 
   return (
     <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${className}`}>
-      {nfts.map((nft, index) => (
+      {nfts.map((nft) => (
         <div
-          key={index}
+          key={nft.id}
           className="bg-white/10 rounded-xl overflow-hidden border border-white/20 hover:border-white/40 transition-colors"
         >
           <div className="aspect-square relative">
-            <Image src={nft.image || "/placeholder.svg"} alt={nft.name} fill className="object-cover" />
+            {imageErrors[nft.id] ? (
+              <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                <span className="text-white">{nft.symbol || "NFT"}</span>
+              </div>
+            ) : (
+              <Image
+                src={nft.image || "/placeholder.svg"}
+                alt={nft.name}
+                fill
+                className="object-cover"
+                onError={() => handleImageError(nft.id)}
+              />
+            )}
           </div>
           <div className="p-4">
             <div className="flex justify-between items-start mb-2">

@@ -5,7 +5,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/header"
-import { Footer } from "@/components/footer"
 import { useWallet } from "@/contexts/wallet-context"
 import {
   FadeIn,
@@ -50,7 +49,7 @@ export function HomePageContent() {
                     asChild
                     size="lg"
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/10 text-lg px-8"
+                    className="border-white/30 text-black hover:bg-white/10 text-lg px-8"
                   >
                     <Link href="/referrals">Earn Rewards</Link>
                   </Button>
@@ -59,9 +58,22 @@ export function HomePageContent() {
             </SlideInLeft>
 
             <SlideInRight delay={0.4}>
-              <div className="relative aspect-square max-w-md mx-auto">
-                <Image src="/nft-reward-token.png" alt="NFT Preview" fill className="object-contain" priority />
-                <div className="absolute inset-0 bg-gradient-to-br from-[#FF5555]/10 via-transparent to-[#00FFE0]/10 rounded-3xl animate-pulse" />
+              <div className="flex justify-center">
+                <div className="relative w-72 md:w-96 aspect-square rounded-3xl border border-white/20 bg-white/10 backdrop-blur-sm p-6 rotate-3 hover:rotate-0 transition-transform duration-500">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Image
+                      src="/images/mint-nft-box.png"
+                      alt="NFT Preview"
+                      width={300}
+                      height={300}
+                      className="object-contain"
+                    />
+                  </div>
+                  <div className="absolute bottom-6 left-6 right-6 bg-black/40 backdrop-blur-md rounded-xl p-4 text-center">
+                    <p className="text-white font-semibold">Exclusive Identity NFT</p>
+                    <p className="text-white/80 text-sm">Mint Price: 10 USDC</p>
+                  </div>
+                </div>
               </div>
             </SlideInRight>
           </div>
@@ -172,8 +184,6 @@ export function HomePageContent() {
           </div>
         </section>
       </SlideUp>
-
-      <Footer />
     </div>
   )
 }

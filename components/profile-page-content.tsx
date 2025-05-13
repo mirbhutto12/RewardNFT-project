@@ -2,160 +2,252 @@
 
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ProfileWalletInfo } from "@/components/profile-wallet-info"
-import { SimplifiedNftGallery } from "@/components/simplified-nft-gallery"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { useWallet } from "@/contexts/wallet-context"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
+import { NavigationBar } from "@/components/navigation-bar"
+import { ProfileWalletInfo } from "@/components/profile-wallet-info"
+import { ProfileNFTCard } from "@/components/profile-nft-card"
+import { SimplifiedNftGallery } from "@/components/simplified-nft-gallery"
+import { ReferralHistory } from "@/components/referral-history"
 import { ActivityItem } from "@/components/activity-item"
+import { ProtectedRoute } from "@/components/protected-route"
 
 export function ProfilePageContent() {
-  const { connected } = useWallet()
-  const [activeTab, setActiveTab] = useState("nfts")
+  const { connected, publicKey } = useWallet()
+  const [activeTab, setActiveTab] = useState("overview")
+
+  // Mock data
+  const userStats = {
+    totalNFTs: 3,
+    questsCompleted: 12,
+    referrals: 5,
+    points: 1250,
+  }
+
+  // Format date to relative time string
+  const formatRelativeTime = (date: Date): string => {
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+    if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`
+    if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)} months ago`
+    return `${Math.floor(diffInSeconds / 31536000)} years ago`
+  }
+
+  const recentActivity = [
+    {
+      id: "1",
+      type: "mint",
+      title: "NFT Minted",
+      description: "You minted Reward NFT #123",
+      timestamp: formatRelativeTime(new Date(Date.now() - 1000 * 60 * 60 * 2)), // 2 hours ago
+    },
+    {
+      id: "2",
+      type: "quest",
+      title: "Quest Completed",
+      description: "Daily Login Quest",
+      timestamp: formatRelativeTime(new Date(Date.now() - 1000 * 60 * 60 * 24)), // 1 day ago
+    },
+    {
+      id: "3",
+      type: "referral",
+      title: "Referral Bonus",
+      description: "User john.sol joined using your referral",
+      timestamp: formatRelativeTime(new Date(Date.now() - 1000 * 60 * 60 * 24 * 2)), // 2 days ago
+    },
+  ]
+
+  // Mock referral data
+  const mockReferrals = [
+    {
+      address: "john.sol",
+      date: "2 days ago",
+      status: "completed" as const,
+      points: 50,
+    },
+    {
+      address: "alice.sol",
+      date: "1 week ago",
+      status: "completed" as const,
+      points: 50,
+    },
+    {
+      address: "bob.sol",
+      date: "2 weeks ago",
+      status: "pending" as const,
+      points: 50,
+    },
+  ]
+
+  if (!connected) {
+    return (
+      <div className="min-h-screen text-white">
+        <NavigationBar />
+
+        <div className="container mx-auto px-4 py-16 flex flex-col items-center justify-center">
+          <h1 className="text-3xl font-bold mb-6">Connect Your Wallet</h1>
+          <p className="text-gray-400 mb-8 text-center max-w-md">
+            Connect your wallet to view your profile, NFTs, and track your rewards.
+          </p>
+          <WalletConnectButton size="lg" />
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8 text-white">My Profile</h1>
+    <ProtectedRoute>
+      <div className="min-h-screen flex flex-col text-white">
+        <NavigationBar />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2">
-          {connected ? (
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full bg-white/10 mb-6">
-                <TabsTrigger value="nfts" className="flex-1">
-                  My NFTs
-                </TabsTrigger>
-                <TabsTrigger value="activity" className="flex-1">
-                  Activity
-                </TabsTrigger>
-                <TabsTrigger value="rewards" className="flex-1">
-                  Rewards
-                </TabsTrigger>
+        <main className="flex-1 container mx-auto px-4 py-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-8">
+              <div>
+                <h1 className="text-3xl font-bold">My Profile</h1>
+                <p className="text-gray-400">Manage your NFTs and rewards</p>
+              </div>
+              <ProfileWalletInfo />
+            </div>
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+              <TabsList className="grid grid-cols-3 md:grid-cols-5 mb-8">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="nfts">My NFTs</TabsTrigger>
+                <TabsTrigger value="quests">Quests</TabsTrigger>
+                <TabsTrigger value="referrals">Referrals</TabsTrigger>
+                <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="nfts" className="mt-0">
-                <SimplifiedNftGallery />
+              <TabsContent value="overview">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">Total NFTs</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-3xl font-bold">{userStats.totalNFTs}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">Quests Completed</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-3xl font-bold">{userStats.questsCompleted}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">Referrals</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-3xl font-bold">{userStats.referrals}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">Total Points</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-3xl font-bold">{userStats.points}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <Card className="md:col-span-2">
+                    <CardHeader>
+                      <CardTitle>Recent Activity</CardTitle>
+                      <CardDescription>Your latest actions and rewards</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {recentActivity.map((activity) => (
+                          <ActivityItem
+                            key={activity.id}
+                            type={activity.type}
+                            title={activity.title}
+                            description={activity.description}
+                            timestamp={activity.timestamp}
+                          />
+                        ))}
+                      </div>
+                      <Button variant="outline" className="w-full mt-4">
+                        View All Activity
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Featured NFT</CardTitle>
+                      <CardDescription>Your most valuable NFT</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex justify-center">
+                      <ProfileNFTCard name="Reward NFT #123" image="/nft-reward-token.png" rarity="Legendary" />
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
 
-              <TabsContent value="activity" className="mt-0">
-                <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+              <TabsContent value="nfts">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-white">Recent Activity</CardTitle>
+                    <CardTitle>My NFT Collection</CardTitle>
+                    <CardDescription>All your minted and collected NFTs</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <ActivityItem
-                      type="mint"
-                      title="NFT Minted"
-                      description="You minted a new Reward NFT"
-                      timestamp="2 hours ago"
-                    />
-                    <ActivityItem
-                      type="reward"
-                      title="Reward Earned"
-                      description="You earned 5 USDC from quest completion"
-                      timestamp="1 day ago"
-                    />
-                    <ActivityItem
-                      type="referral"
-                      title="Referral Bonus"
-                      description="You received a referral bonus of 2 USDC"
-                      timestamp="3 days ago"
-                    />
-                    <ActivityItem
-                      type="mint"
-                      title="NFT Minted"
-                      description="You minted a new Reward NFT"
-                      timestamp="1 week ago"
-                    />
+                  <CardContent>
+                    <SimplifiedNftGallery />
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="rewards" className="mt-0">
-                <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+              <TabsContent value="quests">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-white">Rewards Summary</CardTitle>
+                    <CardTitle>Quests</CardTitle>
+                    <CardDescription>Complete quests to earn rewards</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center p-4 bg-white/5 rounded-lg">
-                        <div>
-                          <h3 className="font-medium text-white">Total Earned</h3>
-                          <p className="text-white/60 text-sm">All-time earnings</p>
-                        </div>
-                        <div className="text-2xl font-bold text-white">25 USDC</div>
-                      </div>
+                    <p className="text-gray-400">Quest content will be displayed here.</p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                      <div className="flex justify-between items-center p-4 bg-white/5 rounded-lg">
-                        <div>
-                          <h3 className="font-medium text-white">Quest Rewards</h3>
-                          <p className="text-white/60 text-sm">From completed quests</p>
-                        </div>
-                        <div className="text-2xl font-bold text-white">15 USDC</div>
-                      </div>
+              <TabsContent value="referrals">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Referrals</CardTitle>
+                    <CardDescription>Invite friends and earn rewards</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ReferralHistory referrals={mockReferrals} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                      <div className="flex justify-between items-center p-4 bg-white/5 rounded-lg">
-                        <div>
-                          <h3 className="font-medium text-white">Referral Bonuses</h3>
-                          <p className="text-white/60 text-sm">From referred users</p>
-                        </div>
-                        <div className="text-2xl font-bold text-white">10 USDC</div>
-                      </div>
-
-                      <div className="mt-6">
-                        <h3 className="font-medium text-white mb-2">Pending Rewards</h3>
-                        <div className="p-4 bg-white/5 rounded-lg">
-                          <p className="text-white/60">No pending rewards at this time</p>
-                        </div>
-                      </div>
-                    </div>
+              <TabsContent value="settings">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Profile Settings</CardTitle>
+                    <CardDescription>Manage your profile preferences</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-400">Settings content will be displayed here.</p>
                   </CardContent>
                 </Card>
               </TabsContent>
             </Tabs>
-          ) : (
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-              <CardContent className="flex flex-col items-center justify-center p-8 space-y-4">
-                <h2 className="text-xl font-bold text-white">Connect Your Wallet</h2>
-                <p className="text-white/60 text-center mb-4">
-                  Connect your wallet to view your NFTs, activity, and rewards
-                </p>
-                <WalletConnectButton />
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <ProfileWalletInfo />
-
-          <Card className="bg-white/10 backdrop-blur-sm border-white/20">
-            <CardHeader>
-              <CardTitle className="text-white">Stats</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-white/60">NFTs Owned</span>
-                  <span className="font-medium text-white">3</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">Quests Completed</span>
-                  <span className="font-medium text-white">7</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">Referrals</span>
-                  <span className="font-medium text-white">5</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-white/60">Total Rewards</span>
-                  <span className="font-medium text-white">25 USDC</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          </div>
+        </main>
       </div>
-    </div>
+    </ProtectedRoute>
   )
 }

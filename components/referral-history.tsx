@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 
 interface ReferralHistoryProps {
-  referrals: {
+  referrals?: {
     address: string
     date: string
     status: "pending" | "completed"
@@ -12,7 +12,7 @@ interface ReferralHistoryProps {
   }[]
 }
 
-export function ReferralHistory({ referrals }: ReferralHistoryProps) {
+export function ReferralHistory({ referrals = [] }: ReferralHistoryProps) {
   return (
     <div className="space-y-4">
       <h3 className="text-xl font-medium text-white">Recent Referrals</h3>

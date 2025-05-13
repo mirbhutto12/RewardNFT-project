@@ -1,13 +1,9 @@
 "use client"
-import Image from "next/image"
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Flame, Check, Trophy, Clock, Calendar, AlertCircle, Disc } from "lucide-react"
-import { MobileNav } from "@/components/mobile-nav"
-import { Footer } from "@/components/footer"
 import { useWallet } from "@/contexts/wallet-context"
 import {
   getAllQuests,
@@ -24,6 +20,7 @@ import {
 } from "@/utils/quests"
 import { useToast } from "@/components/ui/use-toast"
 import { PLATFORM_WALLET_ADDRESS } from "@/config/solana"
+import { ProtectedRoute } from "@/components/protected-route"
 
 export function QuestsPageContent() {
   const { connected, publicKey, connection } = useWallet()
@@ -331,169 +328,146 @@ export function QuestsPageContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="w-full py-4 px-6 bg-black/20 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-           <Link href="/" className="flex items-center gap-2">
-            <Image src="/images/logo.png" alt="Reward NFT Logo" width={48} height={48} className="rounded-lg" />
-            <span className="text-white font-bold text-2xl">Reward NFT</span>
-          </Link>
+    <ProtectedRoute requireNft={true}>
+      {/* Existing quests page content */}
+      <div className="min-h-screen flex flex-col">
+        {/* Your existing quests content */}
+        <main className="flex-1 container mx-auto px-4 py-8">
+          <h1 className="text-3xl font-bold mb-6">Quests</h1>
+          <div className="min-h-screen flex flex-col">
+            {/* Header */}
 
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="/mint" className="text-white hover:text-white/80 transition-colors">
-              Mint
-            </Link>
-            <Link href="/referrals" className="text-white hover:text-white/80 transition-colors">
-              Referrals
-            </Link>
-            <Link href="/quests" className="text-white/80 font-medium border-b-2 border-white">
-              Quests
-            </Link>
-            <Link href="/leaderboard" className="text-white hover:text-white/80 transition-colors">
-              Leaderboard
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-4">
-            <Button asChild variant="outline" className="hidden sm:flex border-white/30 text-white hover:bg-white/10">
-              <Link href="/profile">My Profile</Link>
-            </Button>
-            <Button className={connected ? "bg-white/10 text-white border border-white/30" : "bg-white text-black"}>
-              {connected ? "Disconnect" : "Connect Wallet"}
-            </Button>
-            <MobileNav />
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1 py-12 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-            <div>
-              <h1 className="text-5xl font-bold text-white mb-2">Quests</h1>
-              <p className="text-xl text-white/80">Complete quests to earn USDC rewards</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-4 flex items-center gap-8">
-              <div>
-                <p className="text-white/60 text-sm">Total Earned</p>
-                <p className="text-2xl font-bold text-white">{stats.totalEarned} USDC</p>
-              </div>
-              <div>
-                <p className="text-white/60 text-sm">Quests Completed</p>
-                <p className="text-2xl font-bold text-white">{stats.totalCompleted}</p>
-              </div>
-            </div>
-          </div>
-
-          {connected ? (
-            <Tabs defaultValue="daily" className="w-full">
-              <TabsList className="bg-white/10 border border-white/20 mb-8">
-                <TabsTrigger value="daily" className="data-[state=active]:bg-white/20 text-white">
-                  Daily
-                </TabsTrigger>
-                <TabsTrigger value="weekly" className="data-[state=active]:bg-white/20 text-white">
-                  Weekly
-                </TabsTrigger>
-                <TabsTrigger value="special" className="data-[state=active]:bg-white/20 text-white">
-                  Special
-                </TabsTrigger>
-                <TabsTrigger value="completed" className="data-[state=active]:bg-white/20 text-white">
-                  Completed
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="daily" className="mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {userQuests.daily.length > 0 ? (
-                    userQuests.daily.map((item) => renderQuestCard(item))
-                  ) : (
-                    <div className="col-span-2 text-center py-12">
-                      <p className="text-white text-xl">No daily quests available.</p>
+            {/* Main Content */}
+            <main className="flex-1 py-12 px-6">
+              <div className="max-w-7xl mx-auto">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                  <div>
+                    <h1 className="text-5xl font-bold text-white mb-2">Quests</h1>
+                    <p className="text-xl text-white/80">Complete quests to earn USDC rewards</p>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-4 flex items-center gap-8">
+                    <div>
+                      <p className="text-white/60 text-sm">Total Earned</p>
+                      <p className="text-2xl font-bold text-white">{stats.totalEarned} USDC</p>
                     </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="weekly" className="mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {userQuests.weekly.length > 0 ? (
-                    userQuests.weekly.map((item) => renderQuestCard(item))
-                  ) : (
-                    <div className="col-span-2 text-center py-12">
-                      <p className="text-white text-xl">No weekly quests available.</p>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="special" className="mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {userQuests.special.length > 0 ? (
-                    userQuests.special.map((item) => renderQuestCard(item))
-                  ) : (
-                    <div className="col-span-2 text-center py-12">
-                      <p className="text-white text-xl">No special quests available.</p>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="completed" className="mt-0">
-                {userQuests.completed.length > 0 ? (
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 mb-6">
-                    <h2 className="text-2xl font-bold text-white mb-4">Completed Quests</h2>
-                    <div className="space-y-4">
-                      {userQuests.completed.map(({ quest, progress }) => (
-                        <div key={quest.id} className="flex items-center justify-between py-4 border-b border-white/10">
-                          <div className="flex items-center gap-4">
-                            <div className="bg-green-500/20 rounded-full p-2">
-                              <Check className="h-4 w-4 text-green-400" />
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-medium text-white">{quest.title}</h3>
-                              <p className="text-white/60 text-sm">
-                                Completed on{" "}
-                                {progress.completedAt
-                                  ? new Date(progress.completedAt).toLocaleDateString()
-                                  : "Unknown date"}
-                              </p>
-                            </div>
-                          </div>
-                          <span className="text-white font-medium">
-                            {quest.reward.amount} {quest.reward.currency}
-                          </span>
-                        </div>
-                      ))}
+                    <div>
+                      <p className="text-white/60 text-sm">Quests Completed</p>
+                      <p className="text-2xl font-bold text-white">{stats.totalCompleted}</p>
                     </div>
                   </div>
+                </div>
+
+                {connected ? (
+                  <Tabs defaultValue="daily" className="w-full">
+                    <TabsList className="bg-white/10 border border-white/20 mb-8">
+                      <TabsTrigger value="daily" className="data-[state=active]:bg-white/20 text-white">
+                        Daily
+                      </TabsTrigger>
+                      <TabsTrigger value="weekly" className="data-[state=active]:bg-white/20 text-white">
+                        Weekly
+                      </TabsTrigger>
+                      <TabsTrigger value="special" className="data-[state=active]:bg-white/20 text-white">
+                        Special
+                      </TabsTrigger>
+                      <TabsTrigger value="completed" className="data-[state=active]:bg-white/20 text-white">
+                        Completed
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="daily" className="mt-0">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {userQuests.daily.length > 0 ? (
+                          userQuests.daily.map((item) => renderQuestCard(item))
+                        ) : (
+                          <div className="col-span-2 text-center py-12">
+                            <p className="text-white text-xl">No daily quests available.</p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="weekly" className="mt-0">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {userQuests.weekly.length > 0 ? (
+                          userQuests.weekly.map((item) => renderQuestCard(item))
+                        ) : (
+                          <div className="col-span-2 text-center py-12">
+                            <p className="text-white text-xl">No weekly quests available.</p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="special" className="mt-0">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {userQuests.special.length > 0 ? (
+                          userQuests.special.map((item) => renderQuestCard(item))
+                        ) : (
+                          <div className="col-span-2 text-center py-12">
+                            <p className="text-white text-xl">No special quests available.</p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="completed" className="mt-0">
+                      {userQuests.completed.length > 0 ? (
+                        <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-6 mb-6">
+                          <h2 className="text-2xl font-bold text-white mb-4">Completed Quests</h2>
+                          <div className="space-y-4">
+                            {userQuests.completed.map(({ quest, progress }) => (
+                              <div
+                                key={quest.id}
+                                className="flex items-center justify-between py-4 border-b border-white/10"
+                              >
+                                <div className="flex items-center gap-4">
+                                  <div className="bg-green-500/20 rounded-full p-2">
+                                    <Check className="h-4 w-4 text-green-400" />
+                                  </div>
+                                  <div>
+                                    <h3 className="text-lg font-medium text-white">{quest.title}</h3>
+                                    <p className="text-white/60 text-sm">
+                                      Completed on{" "}
+                                      {progress.completedAt
+                                        ? new Date(progress.completedAt).toLocaleDateString()
+                                        : "Unknown date"}
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className="text-white font-medium">
+                                  {quest.reward.amount} {quest.reward.currency}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-12 text-center">
+                          <h2 className="text-2xl font-bold text-white mb-4">No Completed Quests</h2>
+                          <p className="text-white/80 mb-6">Complete quests to earn rewards and see them here.</p>
+                          <Button variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                            View Available Quests
+                          </Button>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
                 ) : (
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 p-12 text-center">
-                    <h2 className="text-2xl font-bold text-white mb-4">No Completed Quests</h2>
-                    <p className="text-white/80 mb-6">Complete quests to earn rewards and see them here.</p>
-                    <Button variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                      View Available Quests
+                  <div className="bg-white/10 backdrop-blur-sm rounded-3xl border border-white/20 p-12 text-center">
+                    <h2 className="text-3xl font-bold text-white mb-4">Connect Your Wallet to Access Quests</h2>
+                    <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
+                      Mint your exclusive NFT and connect your wallet to access quests and start earning USDC rewards.
+                    </p>
+                    <Button size="lg" className="bg-white hover:bg-white/90 text-black">
+                      Connect Wallet
                     </Button>
                   </div>
                 )}
-              </TabsContent>
-            </Tabs>
-          ) : (
-            <div className="bg-white/10 backdrop-blur-sm rounded-3xl border border-white/20 p-12 text-center">
-              <h2 className="text-3xl font-bold text-white mb-4">Connect Your Wallet to Access Quests</h2>
-              <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
-                Mint your exclusive NFT and connect your wallet to access quests and start earning USDC rewards.
-              </p>
-              <Button size="lg" className="bg-white hover:bg-white/90 text-black">
-                Connect Wallet
-              </Button>
-            </div>
-          )}
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+              </div>
+            </main>
+          </div>
+        </main>
+      </div>
+    </ProtectedRoute>
   )
 }

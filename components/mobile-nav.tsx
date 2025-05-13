@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Menu, X, Home, Award, Users, Gift, Trophy, User, Settings } from "lucide-react"
@@ -73,8 +74,14 @@ export function MobileNav() {
             <div className="flex flex-col h-full">
               <div className="flex justify-between items-center p-4 border-b border-white/10">
                 <Link href="/" className="flex items-center gap-2" onClick={() => setIsOpen(false)}>
-                  <div className="relative h-10 w-10 bg-[#00FFE0] rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">R</span>
+                  <div className="relative h-10 w-10 overflow-hidden rounded-lg">
+                    <Image
+                      src="/images/logo.png"
+                      alt="Reward NFT Logo"
+                      width={40}
+                      height={40}
+                      className="object-cover"
+                    />
                   </div>
                   <span className="text-white font-bold text-xl">Reward NFT</span>
                 </Link>

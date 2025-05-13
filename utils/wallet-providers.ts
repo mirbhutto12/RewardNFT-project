@@ -73,6 +73,25 @@ export function getWalletProvider(name: string): WalletProvider | null {
   return wallet?.provider || null
 }
 
+// Detect available wallet providers
+export function detectWalletProviders(): string[] {
+  if (typeof window === "undefined") return []
+
+  const providers: string[] = []
+
+  if (window.solana?.isPhantom) {
+    providers.push("phantom")
+  }
+
+  if (window.solflare) {
+    providers.push("solflare")
+  }
+
+  // Add more wallet detections as needed
+
+  return providers
+}
+
 // Declare global window interface to include wallet providers
 declare global {
   interface Window {
@@ -81,6 +100,9 @@ declare global {
     }
     solflare?: WalletProvider & {
       isSolflare: boolean
+    }
+    solana?: {
+      isPhantom: boolean
     }
   }
 }
