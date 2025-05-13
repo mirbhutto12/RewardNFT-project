@@ -5,6 +5,7 @@ import type { PublicKey, Connection } from "@solana/web3.js"
 import { toast } from "@/components/ui/use-toast"
 import { PhantomWalletAdapter, WalletError, defaultConnectionManager } from "@/utils/wallet-adapter"
 import { detectWalletProviders } from "@/utils/wallet-providers"
+import * as WalletPersistence from "@/services/wallet-persistence-service"
 
 // Define the wallet context type
 interface WalletContextType {
@@ -21,6 +22,11 @@ interface WalletContextType {
   setHasNFT: (value: boolean) => void
   checkNFTOwnership: () => Promise<boolean>
   isCheckingNFT: boolean
+  autoConnectEnabled: boolean
+  setAutoConnectEnabled: (enabled: boolean) => void
+  connectionPreferences: WalletPersistence.WalletConnectionPreferences
+  updateConnectionPreferences: (prefs: Partial<WalletPersistence.WalletConnectionPreferences>) => void
+  reconnecting: boolean
 }
 
 // Create the wallet context
@@ -31,11 +37,22 @@ export function EnhancedWalletProvider({ children }: { children: ReactNode }) {
   const [publicKey, setPublicKey] = useState<PublicKey | null>(null)
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
   const [walletProviders, setWalletProviders] = useState<string[]>([])
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null)
   const [adapter, setAdapter] = useState<PhantomWalletAdapter | null>(null)
   const [hasNFT, setHasNFT] = useState(false)
   const [isCheckingNFT, setIsCheckingNFT] = useState(false)
+  const [autoConnectEnabled, setAutoConnectEnabled] = useState(true)
+  const [connectionPreferences, setConnectionPreferences] = useState<WalletPersistence.WalletConnectionPreferences>(
+    WalletPersistence.getConnectionPreferences(),
+  )
+
+  // Update connection preferences
+  const updateConnectionPreferences = useCallback((prefs: Partial<WalletPersistence.WalletConnectionPreferences>) => {
+    WalletPersistence.saveConnectionPreferences(prefs)
+    setConnectionPreferences((prev) => ({ ...prev, ...prefs }))
+  }, [])
 
   // Initialize wallet providers
   useEffect(() => {
@@ -46,29 +63,88 @@ export function EnhancedWalletProvider({ children }: { children: ReactNode }) {
     const phantomAdapter = new PhantomWalletAdapter()
     setAdapter(phantomAdapter)
 
-    // Check for persisted connection
-    const persistedWallet = localStorage.getItem("selectedWallet")
-    if (persistedWallet) {
-      setSelectedWallet(persistedWallet)
-      // Auto-connect if wallet was previously connected
-      if (providers.includes(persistedWallet)) {
-        connectWallet(persistedWallet)
+    // Load auto-connect preference
+    const preferences = WalletPersistence.getConnectionPreferences()
+    setAutoConnectEnabled(preferences.autoConnect)
+    setConnectionPreferences(preferences)
+
+    // Setup cross-browser sync
+    const cleanup = WalletPersistence.setupCrossBrowserSync(() => {
+      // When wallet state changes in another tab
+      const currentWallet = WalletPersistence.getSelectedWallet()
+      if (currentWallet && currentWallet !== selectedWallet) {
+        // Another tab connected a wallet
+        if (providers.includes(currentWallet) && preferences.autoConnect) {
+          connectWallet(currentWallet, true)
+        }
+      } else if (!currentWallet && selectedWallet) {
+        // Another tab disconnected the wallet
+        disconnectWallet(true)
+      }
+    })
+
+    return cleanup
+  }, [])
+
+  // Auto-reconnect on page load if session is valid
+  useEffect(() => {
+    const attemptReconnection = async () => {
+      const persistedWallet = WalletPersistence.getSelectedWallet()
+      const sessionValid = WalletPersistence.isSessionValid()
+      const shouldAutoConnect = WalletPersistence.shouldAutoConnect()
+
+      if (persistedWallet && sessionValid && shouldAutoConnect && walletProviders.includes(persistedWallet)) {
+        try {
+          setReconnecting(true)
+          await connectWallet(persistedWallet, true)
+        } catch (error) {
+          console.error("Auto-reconnection failed:", error)
+        } finally {
+          setReconnecting(false)
+        }
       }
     }
-  }, [])
+
+    if (adapter && walletProviders.length > 0 && !connected && !connecting) {
+      attemptReconnection()
+    }
+  }, [adapter, walletProviders, connected, connecting])
+
+  // Refresh session periodically when connected
+  useEffect(() => {
+    if (connected) {
+      // Refresh session timestamp every 5 minutes to extend it
+      const intervalId = setInterval(
+        () => {
+          WalletPersistence.refreshSession()
+        },
+        5 * 60 * 1000,
+      )
+
+      return () => clearInterval(intervalId)
+    }
+  }, [connected])
 
   // Connect to wallet
   const connectWallet = useCallback(
-    async (providerName?: string) => {
+    async (providerName?: string, isReconnect = false) => {
       if (!adapter) return
 
       try {
-        setConnecting(true)
+        if (!isReconnect) {
+          setConnecting(true)
+        }
+
         await adapter.connect()
 
         const walletName = providerName || "phantom"
         setSelectedWallet(walletName)
-        localStorage.setItem("selectedWallet", walletName)
+
+        // Save connection state
+        WalletPersistence.saveSelectedWallet(walletName)
+        if (adapter.publicKey) {
+          WalletPersistence.saveWalletAddress(adapter.publicKey.toString())
+        }
 
         setPublicKey(adapter.publicKey)
         setConnected(true)
@@ -76,53 +152,69 @@ export function EnhancedWalletProvider({ children }: { children: ReactNode }) {
         // Check if user has NFT after connecting
         checkNFTOwnership()
 
-        toast({
-          title: "Wallet Connected",
-          description: `Successfully connected to ${adapter.publicKey?.toString().slice(0, 4)}...${adapter.publicKey?.toString().slice(-4)}`,
-        })
+        if (!isReconnect) {
+          toast({
+            title: "Wallet Connected",
+            description: `Successfully connected to ${adapter.publicKey?.toString().slice(0, 4)}...${adapter.publicKey?.toString().slice(-4)}`,
+          })
+        }
       } catch (error) {
         console.error("Error connecting wallet:", error)
-        const errorMessage =
-          error instanceof WalletError ? error.message : "Failed to connect wallet. Please try again."
 
-        toast({
-          title: "Connection Failed",
-          description: errorMessage,
-          variant: "destructive",
-        })
+        if (!isReconnect) {
+          const errorMessage =
+            error instanceof WalletError ? error.message : "Failed to connect wallet. Please try again."
+
+          toast({
+            title: "Connection Failed",
+            description: errorMessage,
+            variant: "destructive",
+          })
+        }
       } finally {
-        setConnecting(false)
+        if (!isReconnect) {
+          setConnecting(false)
+        }
       }
     },
     [adapter],
   )
 
   // Disconnect wallet
-  const disconnectWallet = useCallback(async () => {
-    if (!adapter) return
+  const disconnectWallet = useCallback(
+    async (silent = false) => {
+      if (!adapter) return
 
-    try {
-      await adapter.disconnect()
-      setPublicKey(null)
-      setConnected(false)
-      setSelectedWallet(null)
-      setHasNFT(false)
-      localStorage.removeItem("selectedWallet")
-      localStorage.removeItem(`nft_minted_${adapter.publicKey?.toString()}`)
+      try {
+        await adapter.disconnect()
+        setPublicKey(null)
+        setConnected(false)
+        setSelectedWallet(null)
+        setHasNFT(false)
 
-      toast({
-        title: "Wallet Disconnected",
-        description: "Your wallet has been disconnected",
-      })
-    } catch (error) {
-      console.error("Error disconnecting wallet:", error)
-      toast({
-        title: "Disconnection Failed",
-        description: "Failed to disconnect wallet. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }, [adapter])
+        // Clear persisted data
+        WalletPersistence.clearWalletData()
+
+        if (!silent) {
+          toast({
+            title: "Wallet Disconnected",
+            description: "Your wallet has been disconnected",
+          })
+        }
+      } catch (error) {
+        console.error("Error disconnecting wallet:", error)
+
+        if (!silent) {
+          toast({
+            title: "Disconnection Failed",
+            description: "Failed to disconnect wallet. Please try again.",
+            variant: "destructive",
+          })
+        }
+      }
+    },
+    [adapter],
+  )
 
   // Sign message
   const signMessage = useCallback(
@@ -164,6 +256,11 @@ export function EnhancedWalletProvider({ children }: { children: ReactNode }) {
     }
   }, [connected, publicKey])
 
+  // Update auto-connect setting
+  useEffect(() => {
+    WalletPersistence.setAutoConnect(autoConnectEnabled)
+  }, [autoConnectEnabled])
+
   // Context value
   const value = {
     publicKey,
@@ -179,6 +276,11 @@ export function EnhancedWalletProvider({ children }: { children: ReactNode }) {
     setHasNFT,
     checkNFTOwnership,
     isCheckingNFT,
+    autoConnectEnabled,
+    setAutoConnectEnabled,
+    connectionPreferences,
+    updateConnectionPreferences,
+    reconnecting,
   }
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>

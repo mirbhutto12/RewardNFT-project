@@ -7,6 +7,7 @@ import { WalletProvider } from "@/contexts/wallet-context"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ClientLayoutWrapper } from "@/components/client-layout-wrapper"
 import { SecureWalletProvider } from "@/contexts/secure-wallet-context"
+import { EnhancedWalletProvider } from "@/contexts/enhanced-wallet-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -27,10 +28,12 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark">
           <WalletProvider>
             <SecureWalletProvider>
-              <ClientLayoutWrapper>
-                {children}
-                <Toaster />
-              </ClientLayoutWrapper>
+              <EnhancedWalletProvider>
+                <ClientLayoutWrapper>
+                  {children}
+                  <Toaster />
+                </ClientLayoutWrapper>
+              </EnhancedWalletProvider>
             </SecureWalletProvider>
           </WalletProvider>
         </ThemeProvider>

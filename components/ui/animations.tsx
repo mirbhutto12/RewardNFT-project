@@ -6,27 +6,26 @@ import { useEffect, useState } from "react"
 import ReactConfetti from "react-confetti"
 
 // Fade In animation component
-export const FadeIn = ({
-  children,
-  delay = 0,
-  duration = 0.5,
-  className = "",
-}: {
-  children: ReactNode
-  delay?: number
-  duration?: number
-  className?: string
-}) => {
+export const FadeIn = ({ children, delay = 0, duration = 500 }) => {
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, delay)
+
+    return () => clearTimeout(timer)
+  }, [delay])
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration, delay }}
-      className={className}
+    <div
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transition: `opacity ${duration}ms ease-in-out`,
+      }}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }
 
@@ -316,7 +315,7 @@ export const ErrorAnimation = ({ size = 100 }: { size?: number }) => {
 }
 
 // Confetti animation for celebrations
-export function Confetti() {
+export const Confetti = () => {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [pieces, setPieces] = useState(200)
 
@@ -327,7 +326,7 @@ export function Confetti() {
       height: window.innerHeight,
     })
 
-    // Handle resize
+    // Handle window resize
     const handleResize = () => {
       setDimensions({
         width: window.innerWidth,
@@ -335,12 +334,13 @@ export function Confetti() {
       })
     }
 
-    // Gradually reduce confetti pieces
+    // Reduce confetti pieces over time
     const timer = setTimeout(() => {
       setPieces(50)
-    }, 3000)
+    }, 2000)
 
     window.addEventListener("resize", handleResize)
+
     return () => {
       window.removeEventListener("resize", handleResize)
       clearTimeout(timer)
@@ -351,8 +351,8 @@ export function Confetti() {
     <ReactConfetti
       width={dimensions.width}
       height={dimensions.height}
-      numberOfPieces={pieces}
       recycle={false}
+      numberOfPieces={pieces}
       gravity={0.2}
     />
   )
