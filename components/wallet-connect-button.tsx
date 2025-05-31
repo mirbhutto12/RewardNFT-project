@@ -2,76 +2,97 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { useWallet } from "@/contexts/wallet-context"
 import { WalletSelectionModal } from "@/components/wallet-selection-modal"
-import { Loader2 } from "lucide-react"
-import Image from "next/image"
+import { Wallet, LogOut, Loader2 } from "lucide-react"
 
-interface WalletConnectButtonProps {
-  variant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive"
-  size?: "default" | "sm" | "lg" | "icon"
-  className?: string
-  fullWidth?: boolean
-}
-
-export function WalletConnectButton({
-  variant = "default",
-  size = "default",
-  className = "",
-  fullWidth = false,
-}: WalletConnectButtonProps) {
-  const { connected, connecting, disconnectWallet, currentWallet, availableWallets, isMobile } = useWallet()
+export function WalletConnectButton() {
+  const wallet = useWallet()
   const [showWalletModal, setShowWalletModal] = useState(false)
 
-  const handleClick = () => {
-    if (connected) {
-      disconnectWallet()
-    } else {
-      setShowWalletModal(true)
+  // Safe wallet hook usage with error boundary
+  let walletState = {
+    connected: false,
+    connecting: false,
+    publicKey: null,
+    disconnect: async () => {},
+    connectWallet: async () => {},
+  }
+
+  try {
+    walletState = {
+      connected: wallet.connected,
+      connecting: wallet.connecting,
+      publicKey: wallet.publicKey,
+      disconnect: wallet.disconnect,
+      connectWallet: wallet.connectWallet,
+    }
+  } catch (error) {
+    console.warn("Wallet context not available in WalletConnectButton:", error)
+  }
+
+  const { connected, connecting, publicKey, disconnect, connectWallet } = walletState
+
+  const handleConnect = async () => {
+    try {
+      if (connected) {
+        await disconnect()
+      } else {
+        setShowWalletModal(true)
+      }
+    } catch (error) {
+      console.error("Error handling wallet connection:", error)
     }
   }
 
-  // Get the current wallet icon
-  const getWalletIcon = () => {
-    if (!currentWallet) return null
-    const wallet = availableWallets.find((w) => w.name === currentWallet)
-    return wallet?.icon || null
+  const handleWalletSelect = async (walletName: string) => {
+    try {
+      setShowWalletModal(false)
+      await connectWallet(walletName)
+    } catch (error) {
+      console.error("Error connecting wallet:", error)
+    }
+  }
+
+  if (connecting) {
+    return (
+      <Button disabled className="gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Connecting...
+      </Button>
+    )
+  }
+
+  if (connected && publicKey) {
+    const address = publicKey.toString()
+    const shortAddress = `${address.slice(0, 4)}...${address.slice(-4)}`
+
+    return (
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="hidden sm:inline-flex">
+          {shortAddress}
+        </Badge>
+        <Button variant="outline" size="sm" onClick={handleConnect} className="gap-2">
+          <LogOut className="h-4 w-4" />
+          <span className="hidden sm:inline">Disconnect</span>
+        </Button>
+      </div>
+    )
   }
 
   return (
     <>
-      <Button
-        variant={variant}
-        size={size}
-        className={`${className} ${fullWidth ? "w-full" : ""} ${isMobile ? "py-6" : ""}`}
-        onClick={handleClick}
-        disabled={connecting}
-      >
-        {connecting ? (
-          <>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            <span className="text-base">Connecting...</span>
-          </>
-        ) : connected ? (
-          <div className="flex items-center gap-2">
-            {getWalletIcon() && (
-              <div className="relative h-5 w-5">
-                <Image
-                  src={getWalletIcon()! || "/placeholder.svg"}
-                  alt={currentWallet!}
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            )}
-            <span className={`${isMobile ? "text-base" : ""}`}>Disconnect</span>
-          </div>
-        ) : (
-          <span className={`${isMobile ? "text-base" : ""}`}>Connect Wallet</span>
-        )}
+      <Button onClick={handleConnect} className="gap-2">
+        <Wallet className="h-4 w-4" />
+        Connect Wallet
       </Button>
 
-      <WalletSelectionModal open={showWalletModal} onOpenChange={setShowWalletModal} />
+      <WalletSelectionModal
+        open={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        onSelectWallet={handleWalletSelect}
+      />
     </>
   )
 }

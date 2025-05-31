@@ -1,330 +1,360 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useState, useEffect, useCallback } from "react"
-import { PublicKey } from "@solana/web3.js"
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import type { PublicKey, Connection, Transaction } from "@solana/web3.js"
 import { toast } from "@/components/ui/use-toast"
-import { detectWallets, getWalletProvider, type WalletProvider } from "@/utils/wallet-providers"
-import { isMobileDevice } from "@/utils/mobile-wallet-adapter"
+import { enhancedRPCService } from "@/services/enhanced-rpc-service"
+import {
+  detectWalletProviders,
+  getDefaultWallet,
+  getWalletAdapter,
+  type WalletProviderInfo,
+  isMobileDevice,
+} from "@/utils/wallet-providers"
+import * as WalletPersistence from "@/services/wallet-persistence-service"
 
-// Define the wallet context type
 interface WalletContextType {
+  publicKey: PublicKey | null
   connected: boolean
   connecting: boolean
-  publicKey: PublicKey | null
+  reconnecting: boolean
+  walletProviders: WalletProviderInfo[]
+  selectedWallet: string | null
   currentWallet: string | null
-  availableWallets: Array<{
-    name: string
-    icon: string
-    installed: boolean
-  }>
-  connectWallet: (walletName: string) => Promise<void>
+  availableWallets: WalletProviderInfo[]
+  connect: (providerName?: string) => Promise<void>
+  connectWallet: (providerName?: string) => Promise<void>
+  disconnect: () => Promise<void>
   disconnectWallet: () => Promise<void>
+  signTransaction: (transaction: Transaction) => Promise<Transaction>
   signMessage: (message: Uint8Array) => Promise<{ signature: Uint8Array; publicKey: PublicKey }>
-  signTransaction: (transaction: any) => Promise<any>
-  signAllTransactions: (transactions: any[]) => Promise<any[]>
-  sendTransaction: (transaction: any) => Promise<string>
+  connection: Connection
+  hasNFT: boolean
+  setHasNFT: (value: boolean) => void
+  checkNFTOwnership: () => Promise<boolean>
+  isCheckingNFT: boolean
+  autoConnectEnabled: boolean
+  setAutoConnectEnabled: (enabled: boolean) => void
+  mintedNFTs: any[]
+  setMintedNFTs: (nfts: any[]) => void
+  refreshNFTs: () => Promise<void>
   isMobile: boolean
+  solBalance: number | null
+  usdcBalance: number | null
+  preferredWallet: string
+  setPreferredWallet: (wallet: string) => void
 }
 
-// Create the wallet context
 const WalletContext = createContext<WalletContextType | undefined>(undefined)
 
-// Define the wallet provider props
-interface WalletProviderProps {
-  children: React.ReactNode
-}
-
-// Create the wallet provider component
-export function WalletProvider({ children }: WalletProviderProps) {
+export function WalletProvider({ children }: { children: ReactNode }) {
+  const [publicKey, setPublicKey] = useState<PublicKey | null>(null)
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
-  const [publicKey, setPublicKey] = useState<PublicKey | null>(null)
-  const [currentWallet, setCurrentWallet] = useState<string | null>(null)
-  const [walletProvider, setWalletProvider] = useState<WalletProvider | null>(null)
-  const [availableWallets, setAvailableWallets] = useState<
-    Array<{
-      name: string
-      icon: string
-      installed: boolean
-    }>
-  >([])
-  const [isMobile, setIsMobile] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
+  const [selectedWallet, setSelectedWallet] = useState<string | null>(null)
+  const [walletAdapter, setWalletAdapter] = useState<any>(null)
+  const [hasNFT, setHasNFT] = useState(false)
+  const [isCheckingNFT, setIsCheckingNFT] = useState(false)
+  const [autoConnectEnabled, setAutoConnectEnabled] = useState(true)
+  const [mintedNFTs, setMintedNFTs] = useState<any[]>([])
+  const [solBalance, setSolBalance] = useState<number | null>(null)
+  const [usdcBalance, setUsdcBalance] = useState<number | null>(null)
+  const [walletProviders, setWalletProviders] = useState<WalletProviderInfo[]>([])
+  const [preferredWallet, setPreferredWalletState] = useState("awwallet")
 
-  // Check for mobile device
+  const isMobile = isMobileDevice()
+
+  // Initialize wallet providers and preferred wallet
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsMobile(isMobileDevice())
-    }
+    const providers = detectWalletProviders()
+    setWalletProviders(providers)
+
+    const preferred = WalletPersistence.getPreferredWallet()
+    setPreferredWalletState(preferred)
   }, [])
 
-  // Detect available wallets
+  // Auto-reconnect on page load
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const wallets = detectWallets()
-      setAvailableWallets(wallets)
-    }
-  }, [])
+    const attemptAutoReconnect = async () => {
+      const session = WalletPersistence.getWalletSession()
+      const shouldAuto = WalletPersistence.shouldAutoConnect()
 
-  // Handle wallet connection events
-  useEffect(() => {
-    if (walletProvider) {
-      const handleConnect = (publicKey: { toString: () => string }) => {
-        try {
-          const newPublicKey = new PublicKey(publicKey.toString())
-          setPublicKey(newPublicKey)
-          setConnected(true)
-          toast({
-            title: "Wallet Connected",
-            description: `Connected to ${newPublicKey.toString().slice(0, 4)}...${newPublicKey.toString().slice(-4)}`,
-          })
-        } catch (error) {
-          console.error("Error handling connect event:", error)
-        }
+      if (!session || !shouldAuto || !WalletPersistence.isSessionValid()) {
+        return
       }
 
-      const handleDisconnect = () => {
-        setPublicKey(null)
-        setConnected(false)
-        setCurrentWallet(null)
-        setWalletProvider(null)
-        toast({
-          title: "Wallet Disconnected",
-          description: "Your wallet has been disconnected",
-        })
+      // Check if the wallet from session is still available
+      const providers = detectWalletProviders()
+      const sessionWallet = providers.find((p) => p.name === session.walletName && p.installed)
+
+      if (!sessionWallet) {
+        // Wallet no longer available, clear session
+        WalletPersistence.clearWalletSession()
+        return
       }
 
-      // Add event listeners
-      walletProvider.on("connect", handleConnect)
-      walletProvider.on("disconnect", handleDisconnect)
-
-      // Clean up event listeners
-      return () => {
-        walletProvider.off("connect", handleConnect)
-        walletProvider.off("disconnect", handleDisconnect)
-      }
-    }
-  }, [walletProvider])
-
-  // Check for wallet connection on page load
-  useEffect(() => {
-    const checkWalletConnection = async () => {
-      // For mobile, we rely on deep linking and don't auto-connect
-      if (isMobile) return
-
-      // For browser extensions, try to auto-connect
       try {
-        const wallets = detectWallets()
-        for (const wallet of wallets) {
-          if (wallet.installed && wallet.provider) {
-            try {
-              // Check if already connected
-              if (wallet.provider.publicKey) {
-                const publicKey = new PublicKey(wallet.provider.publicKey.toString())
-                setPublicKey(publicKey)
-                setConnected(true)
-                setCurrentWallet(wallet.name)
-                setWalletProvider(wallet.provider)
-                break
-              }
-            } catch (error) {
-              console.error(`Error checking ${wallet.name} connection:`, error)
-            }
-          }
-        }
+        setReconnecting(true)
+        await connectToWallet(session.walletName, true)
       } catch (error) {
-        console.error("Error checking wallet connection:", error)
+        console.error("Auto-reconnect failed:", error)
+        WalletPersistence.clearWalletSession()
+      } finally {
+        setReconnecting(false)
       }
     }
 
-    checkWalletConnection()
-  }, [isMobile])
+    // Wait for providers to be detected
+    if (walletProviders.length > 0) {
+      attemptAutoReconnect()
+    }
+  }, [walletProviders])
 
-  // Connect to wallet
-  const connectWallet = useCallback(async (walletName: string) => {
+  // Cross-tab synchronization
+  useEffect(() => {
+    const cleanup = WalletPersistence.setupCrossTabSync(() => {
+      const session = WalletPersistence.getWalletSession()
+      if (session && WalletPersistence.isSessionValid()) {
+        // Another tab connected
+        if (!connected || selectedWallet !== session.walletName) {
+          connectToWallet(session.walletName, true)
+        }
+      } else if (!session && connected) {
+        // Another tab disconnected
+        handleDisconnect(true)
+      }
+    })
+
+    return cleanup
+  }, [connected, selectedWallet])
+
+  // Connect to specific wallet
+  const connectToWallet = useCallback(async (walletName: string, silent = false) => {
     try {
-      setConnecting(true)
+      if (!silent) setConnecting(true)
 
-      // Get wallet provider
-      const provider = getWalletProvider(walletName)
-      if (!provider) {
-        throw new Error(`${walletName} wallet is not installed`)
+      const adapter = getWalletAdapter(walletName)
+      if (!adapter) {
+        throw new Error(`${walletName} wallet not found`)
       }
 
-      // Connect to wallet
-      const response = await provider.connect()
-      const newPublicKey = new PublicKey(response.publicKey.toString())
-
-      // Update state
-      setPublicKey(newPublicKey)
-      setConnected(true)
-      setCurrentWallet(walletName)
-      setWalletProvider(provider)
-
-      toast({
-        title: "Wallet Connected",
-        description: `Connected to ${newPublicKey.toString().slice(0, 4)}...${newPublicKey.toString().slice(-4)}`,
-      })
-    } catch (error: any) {
-      console.error("Error connecting wallet:", error)
-
-      // Handle user rejection
-      if (error.code === 4001) {
-        toast({
-          title: "Connection Cancelled",
-          description: "You cancelled the connection request",
-          variant: "destructive",
-        })
+      // Connect based on wallet type
+      let result
+      if (walletName === "awwallet") {
+        result = await adapter.connect()
+      } else if (walletName === "phantom") {
+        result = await adapter.connect()
+      } else if (walletName === "solflare") {
+        await adapter.connect()
+        result = { publicKey: adapter.publicKey }
       } else {
+        result = await adapter.connect()
+      }
+
+      const pubKey = result.publicKey
+      if (!pubKey) {
+        throw new Error("No public key received from wallet")
+      }
+
+      // Create PublicKey object
+      const publicKeyObj =
+        typeof pubKey === "string" ? ({ toString: () => pubKey, toBase58: () => pubKey } as PublicKey) : pubKey
+
+      setWalletAdapter(adapter)
+      setSelectedWallet(walletName)
+      setPublicKey(publicKeyObj)
+      setConnected(true)
+
+      // Save session
+      WalletPersistence.saveWalletSession(walletName, publicKeyObj.toString())
+
+      // Set as preferred if it's awwallet
+      if (walletName === "awwallet") {
+        setPreferredWallet("awwallet")
+      }
+
+      // Mock balances for demo
+      setSolBalance(2.5)
+      setUsdcBalance(4000)
+
+      // Check NFTs
+      await checkNFTOwnership()
+      await refreshNFTs()
+
+      if (!silent) {
+        toast({
+          title: "Wallet Connected",
+          description: `Connected to ${walletName} (${publicKeyObj.toString().slice(0, 4)}...${publicKeyObj.toString().slice(-4)})`,
+        })
+      }
+    } catch (error: any) {
+      console.error(`Error connecting to ${walletName}:`, error)
+      if (!silent) {
         toast({
           title: "Connection Failed",
-          description: error.message || "Failed to connect wallet",
+          description: error.message || `Failed to connect to ${walletName}`,
           variant: "destructive",
         })
       }
-
       throw error
     } finally {
-      setConnecting(false)
+      if (!silent) setConnecting(false)
     }
   }, [])
 
-  // Disconnect wallet
-  const disconnectWallet = useCallback(async () => {
-    if (walletProvider) {
-      try {
-        await walletProvider.disconnect()
-        setPublicKey(null)
-        setConnected(false)
-        setCurrentWallet(null)
-        setWalletProvider(null)
+  // Main connect function
+  const connectWallet = useCallback(
+    async (providerName?: string) => {
+      const walletToConnect = providerName || preferredWallet || getDefaultWallet() || "awwallet"
 
+      // Check if wallet is installed
+      const providers = detectWalletProviders()
+      const provider = providers.find((p) => p.name === walletToConnect)
+
+      if (!provider?.installed) {
+        toast({
+          title: "Wallet Not Found",
+          description: `${walletToConnect} is not installed. Please install it first.`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      await connectToWallet(walletToConnect)
+    },
+    [preferredWallet, connectToWallet],
+  )
+
+  // Disconnect function
+  const handleDisconnect = useCallback(
+    async (silent = false) => {
+      try {
+        if (walletAdapter?.disconnect) {
+          await walletAdapter.disconnect()
+        }
+      } catch (error) {
+        console.error("Error during wallet disconnect:", error)
+      }
+
+      setWalletAdapter(null)
+      setSelectedWallet(null)
+      setPublicKey(null)
+      setConnected(false)
+      setHasNFT(false)
+      setMintedNFTs([])
+      setSolBalance(null)
+      setUsdcBalance(null)
+
+      WalletPersistence.clearWalletSession()
+
+      if (!silent) {
         toast({
           title: "Wallet Disconnected",
           description: "Your wallet has been disconnected",
         })
-      } catch (error) {
-        console.error("Error disconnecting wallet:", error)
-        toast({
-          title: "Disconnection Failed",
-          description: "Failed to disconnect wallet",
-          variant: "destructive",
-        })
-        throw error
       }
-    }
-  }, [walletProvider])
+    },
+    [walletAdapter],
+  )
+
+  // Set preferred wallet
+  const setPreferredWallet = useCallback((wallet: string) => {
+    setPreferredWalletState(wallet)
+    WalletPersistence.setPreferredWallet(wallet)
+  }, [])
+
+  // Sign transaction
+  const signTransaction = useCallback(
+    async (transaction: Transaction): Promise<Transaction> => {
+      if (!walletAdapter || !connected) {
+        throw new Error("Wallet not connected")
+      }
+      return await walletAdapter.signTransaction(transaction)
+    },
+    [walletAdapter, connected],
+  )
 
   // Sign message
   const signMessage = useCallback(
     async (message: Uint8Array) => {
-      if (!walletProvider || !connected) {
+      if (!walletAdapter || !connected) {
         throw new Error("Wallet not connected")
       }
-
-      try {
-        const { signature, publicKey } = await walletProvider.signMessage(message)
-        return { signature, publicKey: new PublicKey(publicKey.toString()) }
-      } catch (error) {
-        console.error("Error signing message:", error)
-        toast({
-          title: "Signing Failed",
-          description: "Failed to sign message",
-          variant: "destructive",
-        })
-        throw error
-      }
+      return await walletAdapter.signMessage(message)
     },
-    [walletProvider, connected],
+    [walletAdapter, connected],
   )
 
-  // Sign transaction
-  const signTransaction = useCallback(
-    async (transaction: any) => {
-      if (!walletProvider || !connected) {
-        throw new Error("Wallet not connected")
-      }
+  // Check NFT ownership
+  const checkNFTOwnership = useCallback(async (): Promise<boolean> => {
+    if (!connected || !publicKey) return false
 
-      try {
-        return await walletProvider.signTransaction(transaction)
-      } catch (error) {
-        console.error("Error signing transaction:", error)
-        toast({
-          title: "Signing Failed",
-          description: "Failed to sign transaction",
-          variant: "destructive",
-        })
-        throw error
-      }
-    },
-    [walletProvider, connected],
-  )
+    setIsCheckingNFT(true)
+    try {
+      const mintedNFTsData = localStorage.getItem(`minted_nfts_${publicKey.toString()}`)
+      const nfts = mintedNFTsData ? JSON.parse(mintedNFTsData) : []
+      const hasMinted = nfts.length > 0
+      setHasNFT(hasMinted)
+      setMintedNFTs(nfts)
+      return hasMinted
+    } catch (error) {
+      console.error("Error checking NFT ownership:", error)
+      return false
+    } finally {
+      setIsCheckingNFT(false)
+    }
+  }, [connected, publicKey])
 
-  // Sign all transactions
-  const signAllTransactions = useCallback(
-    async (transactions: any[]) => {
-      if (!walletProvider || !connected) {
-        throw new Error("Wallet not connected")
-      }
+  // Refresh NFTs
+  const refreshNFTs = useCallback(async () => {
+    if (!connected || !publicKey) return
 
-      try {
-        return await walletProvider.signAllTransactions(transactions)
-      } catch (error) {
-        console.error("Error signing transactions:", error)
-        toast({
-          title: "Signing Failed",
-          description: "Failed to sign transactions",
-          variant: "destructive",
-        })
-        throw error
-      }
-    },
-    [walletProvider, connected],
-  )
+    try {
+      const mintedNFTsData = localStorage.getItem(`minted_nfts_${publicKey.toString()}`)
+      const nfts = mintedNFTsData ? JSON.parse(mintedNFTsData) : []
+      setMintedNFTs(nfts)
+      setHasNFT(nfts.length > 0)
+    } catch (error) {
+      console.error("Error refreshing NFTs:", error)
+    }
+  }, [connected, publicKey])
 
-  // Send transaction
-  const sendTransaction = useCallback(
-    async (transaction: any) => {
-      if (!walletProvider || !connected) {
-        throw new Error("Wallet not connected")
-      }
-
-      try {
-        const { signature } = await walletProvider.signAndSendTransaction(transaction)
-        return signature
-      } catch (error) {
-        console.error("Error sending transaction:", error)
-        toast({
-          title: "Transaction Failed",
-          description: "Failed to send transaction",
-          variant: "destructive",
-        })
-        throw error
-      }
-    },
-    [walletProvider, connected],
-  )
-
-  // Create context value
-  const contextValue: WalletContextType = {
+  const value = {
+    publicKey,
     connected,
     connecting,
-    publicKey,
-    currentWallet,
-    availableWallets,
+    reconnecting,
+    walletProviders,
+    selectedWallet,
+    currentWallet: selectedWallet,
+    availableWallets: walletProviders,
+    connect: connectWallet,
     connectWallet,
-    disconnectWallet,
-    signMessage,
+    disconnect: handleDisconnect,
+    disconnectWallet: handleDisconnect,
     signTransaction,
-    signAllTransactions,
-    sendTransaction,
+    signMessage,
+    connection: enhancedRPCService.getConnection(),
+    hasNFT,
+    setHasNFT,
+    checkNFTOwnership,
+    isCheckingNFT,
+    autoConnectEnabled,
+    setAutoConnectEnabled,
+    mintedNFTs,
+    setMintedNFTs,
+    refreshNFTs,
     isMobile,
+    solBalance,
+    usdcBalance,
+    preferredWallet,
+    setPreferredWallet,
   }
 
-  return <WalletContext.Provider value={contextValue}>{children}</WalletContext.Provider>
+  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
 }
 
-// Create a hook to use the wallet context
 export function useWallet() {
   const context = useContext(WalletContext)
   if (context === undefined) {

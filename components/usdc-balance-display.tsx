@@ -2,72 +2,75 @@
 
 import { useState, useEffect } from "react"
 import { useWallet } from "@/contexts/wallet-context"
-import { Loader2, RefreshCw } from "lucide-react"
+import { USDCService } from "@/services/usdc-service"
+import { Badge } from "@/components/ui/badge"
+import { DollarSign, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { getTokenBalance } from "@/utils/token"
-import { DEFAULT_USDC_TOKEN_ADDRESS } from "@/config/solana"
 
-interface UsdcBalanceDisplayProps {
+interface USDCBalanceDisplayProps {
+  showRefresh?: boolean
   className?: string
-  publicKey?: any
 }
 
-export function UsdcBalanceDisplay({ className = "", publicKey }: UsdcBalanceDisplayProps) {
-  const walletContext = useWallet()
-  const { connected, connection } = walletContext
-  const [loading, setLoading] = useState(false)
-  const [usdcBalance, setUsdcBalance] = useState<number | null>(null)
-  const walletPublicKey = publicKey || walletContext.publicKey
+export function USDCBalanceDisplay({ showRefresh = false, className = "" }: USDCBalanceDisplayProps) {
+  const { connected, publicKey, connection } = useWallet()
+  const [balance, setBalance] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [usdcService] = useState(() => new USDCService(connection))
 
   const fetchBalance = async () => {
-    if (!connected || !walletPublicKey || !connection) {
+    if (!connected || !publicKey || !connection) {
+      setBalance(null)
       return
     }
 
+    setIsLoading(true)
     try {
-      setLoading(true)
-      // Directly fetch the USDC balance using the token utility
-      const balance = await getTokenBalance(connection, walletPublicKey, DEFAULT_USDC_TOKEN_ADDRESS)
-      setUsdcBalance(balance)
+      // Ensure we have a valid PublicKey object
+      if (typeof publicKey === "string") {
+        console.error("PublicKey is string, expected PublicKey object")
+        setBalance(0)
+        return
+      }
+
+      const usdcBalance = await usdcService.getUSDCBalance(publicKey)
+      setBalance(usdcBalance)
     } catch (error) {
       console.error("Error fetching USDC balance:", error)
+      setBalance(0)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchBalance()
+    if (connected && publicKey && connection) {
+      fetchBalance()
+    } else {
+      setBalance(null)
+    }
+  }, [connected, publicKey, connection])
 
-    // Set up an interval to refresh the balance every 30 seconds
-    const intervalId = setInterval(fetchBalance, 30000)
-
-    return () => clearInterval(intervalId)
-  }, [walletPublicKey, connected, connection])
-
-  const handleRefresh = () => {
-    fetchBalance()
+  if (!connected) {
+    return (
+      <Badge variant="outline" className={className}>
+        <DollarSign className="w-3 h-3 mr-1" />
+        Connect Wallet
+      </Badge>
+    )
   }
 
   return (
-    <div className={`flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5 ${className}`}>
-      <span className="text-white font-medium">
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          `${usdcBalance !== null && usdcBalance !== undefined ? usdcBalance.toFixed(2) : "0.00"} USDC`
-        )}
-      </span>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-6 w-6 p-0 text-white/70 hover:text-white hover:bg-white/10"
-        onClick={handleRefresh}
-        disabled={loading}
-      >
-        <RefreshCw className="h-3 w-3" />
-        <span className="sr-only">Refresh balance</span>
-      </Button>
+    <div className={`flex items-center gap-2 ${className}`}>
+      <Badge variant="secondary" className="flex items-center">
+        <DollarSign className="w-3 h-3 mr-1" />
+        {isLoading ? "Loading..." : `${balance?.toFixed(2) || "0.00"} USDC`}
+      </Badge>
+      {showRefresh && (
+        <Button variant="ghost" size="sm" onClick={fetchBalance} disabled={isLoading} className="h-6 w-6 p-0">
+          <RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} />
+        </Button>
+      )}
     </div>
   )
 }

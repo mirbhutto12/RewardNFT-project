@@ -22,8 +22,7 @@ export const AUTHORIZED_CREATORS = [
 ]
 
 // Collection address for official NFTs
-export const OFFICIAL_COLLECTION =
-  process.env.NEXT_PUBLIC_OFFICIAL_COLLECTION || "7C4jsPZpht42Tw6MjXWF56Q5RQUocjBBmciEjDa8HRtp"
+export const OFFICIAL_COLLECTION = "EnEnryMh6Lcxjr8Qard3kSFHJokSxCuqcwCfGLHbmMZa"
 
 // Calculate hash of image for verification
 export async function calculateImageHash(imageUrl: string): Promise<string> {
@@ -185,9 +184,9 @@ export async function fetchAndVerifyNftMetadata(
           nameMatch: false,
           symbolMatch: false,
           descriptionMatch: false,
+          collectionMatch: false,
           imageMatch: false,
           creatorMatch: false,
-          collectionMatch: false,
         },
         message: "Failed to fetch metadata",
       },

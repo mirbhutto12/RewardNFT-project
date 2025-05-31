@@ -1,108 +1,119 @@
-// This file replaces phantom-provider.ts with a more generic approach that supports multiple wallets
+"use client"
 
-// Type definitions for wallet providers
-export interface WalletProvider {
-  connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>
-  disconnect: () => Promise<void>
-  signAndSendTransaction: (transaction: any) => Promise<{ signature: string }>
-  signMessage: (message: Uint8Array) => Promise<{ signature: Uint8Array }>
-  on: (event: string, callback: (...args: any[]) => void) => void
-  off: (event: string, callback: (...args: any[]) => void) => void
-}
-
-export interface DetectedWallet {
+export interface WalletProviderInfo {
   name: string
+  displayName: string
   icon: string
-  provider: WalletProvider | null
   installed: boolean
-  url: string
+  mobile: boolean
+  priority: number
+  adapter?: any
 }
 
-// Check if Phantom wallet is installed
-export function isPhantomInstalled(): boolean {
-  return typeof window !== "undefined" && window.phantom?.solana?.isPhantom
-}
+// Check if wallet is installed
+export function isWalletInstalled(walletName: string): boolean {
+  if (typeof window === "undefined") return false
 
-// Check if Solflare wallet is installed
-export function isSolflareInstalled(): boolean {
-  return typeof window !== "undefined" && window.solflare?.isSolflare
-}
-
-// Get Phantom provider
-export function getPhantomProvider(): WalletProvider {
-  if (!isPhantomInstalled()) {
-    throw new Error("Phantom wallet is not installed")
+  switch (walletName.toLowerCase()) {
+    case "awwallet":
+      return !!(window as any).awwallet
+    case "phantom":
+      return !!(window as any).solana?.isPhantom
+    case "solflare":
+      return !!(window as any).solflare
+    case "backpack":
+      return !!(window as any).backpack
+    case "glow":
+      return !!(window as any).glow
+    default:
+      return false
   }
-  return window.phantom.solana
 }
 
-// Get Solflare provider
-export function getSolflareProvider(): WalletProvider {
-  if (!isSolflareInstalled()) {
-    throw new Error("Solflare wallet is not installed")
+// Get wallet adapter
+export function getWalletAdapter(walletName: string): any {
+  if (typeof window === "undefined") return null
+
+  switch (walletName.toLowerCase()) {
+    case "awwallet":
+      return (window as any).awwallet
+    case "phantom":
+      return (window as any).solana
+    case "solflare":
+      return (window as any).solflare
+    case "backpack":
+      return (window as any).backpack
+    case "glow":
+      return (window as any).glow
+    default:
+      return null
   }
-  return window.solflare
 }
 
-// Detect available wallets
-export function detectWallets(): DetectedWallet[] {
-  const wallets: DetectedWallet[] = [
+// Detect all available wallet providers
+export function detectWalletProviders(): WalletProviderInfo[] {
+  const wallets: WalletProviderInfo[] = [
     {
-      name: "Phantom",
-      icon: "/images/phantom-icon.png",
-      provider: isPhantomInstalled() ? getPhantomProvider() : null,
-      installed: isPhantomInstalled(),
-      url: "https://phantom.app/",
+      name: "awwallet",
+      displayName: "AWWallet",
+      icon: "/images/awwallet-icon.png",
+      installed: isWalletInstalled("awwallet"),
+      mobile: true,
+      priority: 1, // Highest priority - default wallet
     },
     {
-      name: "Solflare",
+      name: "phantom",
+      displayName: "Phantom",
+      icon: "/images/phantom-icon.png",
+      installed: isWalletInstalled("phantom"),
+      mobile: true,
+      priority: 2,
+    },
+    {
+      name: "solflare",
+      displayName: "Solflare",
       icon: "/images/solflare-icon.png",
-      provider: isSolflareInstalled() ? getSolflareProvider() : null,
-      installed: isSolflareInstalled(),
-      url: "https://solflare.com/",
+      installed: isWalletInstalled("solflare"),
+      mobile: false,
+      priority: 3,
+    },
+    {
+      name: "backpack",
+      displayName: "Backpack",
+      icon: "/images/backpack-icon.png",
+      installed: isWalletInstalled("backpack"),
+      mobile: false,
+      priority: 4,
+    },
+    {
+      name: "glow",
+      displayName: "Glow",
+      icon: "/images/glow-icon.png",
+      installed: isWalletInstalled("glow"),
+      mobile: false,
+      priority: 5,
     },
   ]
 
-  return wallets
+  // Sort by priority (lower number = higher priority)
+  return wallets.sort((a, b) => a.priority - b.priority)
 }
 
-// Get a wallet provider by name
-export function getWalletProvider(name: string): WalletProvider | null {
-  const wallets = detectWallets()
-  const wallet = wallets.find((w) => w.name.toLowerCase() === name.toLowerCase())
-  return wallet?.provider || null
+// Get default wallet (awwallet if available, otherwise first installed)
+export function getDefaultWallet(): string | null {
+  const providers = detectWalletProviders()
+
+  // First priority: awwallet if installed
+  const awwallet = providers.find((p) => p.name === "awwallet" && p.installed)
+  if (awwallet) return "awwallet"
+
+  // Second priority: first installed wallet by priority
+  const firstInstalled = providers.find((p) => p.installed)
+  return firstInstalled?.name || null
 }
 
-// Detect available wallet providers
-export function detectWalletProviders(): string[] {
-  if (typeof window === "undefined") return []
-
-  const providers: string[] = []
-
-  if (window.solana?.isPhantom) {
-    providers.push("phantom")
-  }
-
-  if (window.solflare) {
-    providers.push("solflare")
-  }
-
-  // Add more wallet detections as needed
-
-  return providers
-}
-
-// Declare global window interface to include wallet providers
-declare global {
-  interface Window {
-    phantom?: {
-      solana?: WalletProvider
-    }
-    solflare?: WalletProvider & {
-      isSolflare: boolean
-    }
-    solana?: {
-      isPhantom: boolean
-    }
-  }
+// Check if we're on mobile
+export function isMobileDevice(): boolean {
+  if (typeof window === "undefined") return false
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 }

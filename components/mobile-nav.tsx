@@ -8,6 +8,16 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Menu, X, Home, Award, Users, Gift, Trophy, User, Settings } from "lucide-react"
 import { useWallet } from "@/contexts/wallet-context"
 import { WalletConnectButton } from "@/components/wallet-connect-button"
+import { cn } from "@/lib/utils"
+
+const navigationItems = [
+  { href: "/", label: "Home" },
+  { href: "/mint", label: "Mint" },
+  { href: "/profile", label: "Profile" },
+  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/referrals", label: "Referrals" },
+  { href: "/quests", label: "Quests" },
+]
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false)
@@ -56,7 +66,7 @@ export function MobileNav() {
     <div className="md:hidden">
       <button
         onClick={toggleMenu}
-        className="text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+        className="text-theme-dark-text p-2 rounded-full hover:bg-theme-dark-primary/10 transition-colors"
         aria-label={isOpen ? "Close menu" : "Open menu"}
       >
         {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -69,7 +79,7 @@ export function MobileNav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md"
+            className="fixed inset-0 z-50 bg-theme-dark-surface/95 backdrop-blur-md"
           >
             <div className="flex flex-col h-full">
               <div className="flex justify-between items-center p-4 border-b border-white/10">
@@ -87,7 +97,7 @@ export function MobileNav() {
                 </Link>
                 <button
                   onClick={toggleMenu}
-                  className="text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+                  className="text-theme-dark-text p-2 rounded-full hover:bg-theme-dark-primary/10 transition-colors"
                   aria-label="Close menu"
                 >
                   <X size={24} />
@@ -102,8 +112,8 @@ export function MobileNav() {
                       href={item.href}
                       className={`flex items-center gap-3 py-3 px-4 rounded-lg transition-colors ${
                         pathname === item.href
-                          ? "bg-white/10 text-white font-medium"
-                          : "text-white/80 hover:bg-white/5 hover:text-white"
+                          ? "bg-theme-dark-primary/20 text-theme-dark-primary font-semibold"
+                          : "text-theme-dark-text-secondary hover:bg-theme-dark-primary/10 hover:text-theme-dark-text"
                       }`}
                     >
                       {item.icon}
@@ -120,6 +130,23 @@ export function MobileNav() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <div className="container py-4">
+        <nav className="flex flex-col space-y-3">
+          {navigationItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "text-sm font-medium transition-colors hover:text-foreground/80",
+                pathname === item.href ? "text-foreground" : "text-foreground/60",
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
     </div>
   )
 }

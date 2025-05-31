@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { useWallet } from "@/contexts/wallet-context"
+import { usePersistentWallet } from "@/contexts/persistent-wallet-context"
 import { toast } from "@/components/ui/use-toast"
 
 interface AuthContextType {
@@ -14,7 +14,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { connected, publicKey } = useWallet()
+  const { connected, publicKey } = usePersistentWallet()
   const [hasNft, setHasNft] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const router = useRouter()

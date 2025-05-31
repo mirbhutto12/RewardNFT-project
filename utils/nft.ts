@@ -1,7 +1,7 @@
 import { type Connection, Keypair, PublicKey, Transaction, SystemProgram } from "@solana/web3.js"
 import {
   createCreateMetadataAccountV3Instruction,
-  PROGRAM_ID as METADATA_PROGRAM_ID,
+  MPL_TOKEN_METADATA_PROGRAM_ID,
 } from "@metaplex-foundation/mpl-token-metadata"
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -17,8 +17,8 @@ import { NFT_METADATA } from "@/config/solana"
 // Find the metadata PDA for a mint
 export const findMetadataPda = async (mint: PublicKey): Promise<PublicKey> => {
   const [pda] = await PublicKey.findProgramAddress(
-    [Buffer.from("metadata"), METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-    METADATA_PROGRAM_ID,
+    [Buffer.from("metadata"), MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+    MPL_TOKEN_METADATA_PROGRAM_ID,
   )
   return pda
 }
@@ -115,7 +115,6 @@ export const createNftMintTransaction = async (
         collectionDetails: null,
       },
     },
-    METADATA_PROGRAM_ID,
   )
 
   transaction.add(metadataInstruction)

@@ -1,14 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Loader2, Star } from "lucide-react"
+import Image from "next/image"
 import { useWallet } from "@/contexts/wallet-context"
-import { Loader2, Smartphone, QrCode } from "lucide-react"
-import { useMobile } from "@/hooks/use-mobile"
-import { connectToPhantomMobile } from "@/utils/mobile-wallet-adapter"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/components/ui/use-toast"
 
 interface WalletSelectionModalProps {
   open: boolean
@@ -16,158 +16,139 @@ interface WalletSelectionModalProps {
 }
 
 export function WalletSelectionModal({ open, onOpenChange }: WalletSelectionModalProps) {
-  const { connectWallet, connecting, availableWallets } = useWallet()
+  const {
+    connecting,
+    connectWallet,
+    walletProviders,
+    autoConnectEnabled,
+    setAutoConnectEnabled,
+    preferredWallet,
+    setPreferredWallet,
+  } = useWallet()
+
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null)
-  const { isMobile } = useMobile()
-  const [activeTab, setActiveTab] = useState<string>(isMobile ? "mobile" : "browser")
-  const [showQrCode, setShowQrCode] = useState<boolean>(false)
 
-  // Reset state when modal opens/closes
-  useEffect(() => {
-    if (!open) {
-      setSelectedWallet(null)
-      setShowQrCode(false)
-    }
-  }, [open])
-
-  const handleWalletSelect = async (walletName: string) => {
-    setSelectedWallet(walletName)
-
+  const handleConnect = async (walletName: string) => {
     try {
-      if (isMobile && walletName === "phantom") {
-        // Use mobile-specific connection for Phantom
-        await connectToPhantomMobile()
-      } else {
-        // Use regular connection for browser extensions
-        await connectWallet(walletName)
-      }
+      setSelectedWallet(walletName)
+      await connectWallet(walletName)
       onOpenChange(false)
     } catch (error) {
-      console.error("Wallet connection error:", error)
+      console.error("Connection failed:", error)
     } finally {
       setSelectedWallet(null)
     }
   }
 
-  const handleQrCodeToggle = () => {
-    setShowQrCode(!showQrCode)
-  }
-
-  // Generate a session-based connection URL for the QR code
-  // In a real implementation, this would create a session on your backend
-  const getConnectionQrUrl = () => {
-    const baseUrl = window.location.origin
-    const sessionId = Math.random().toString(36).substring(2, 15)
-    return `${baseUrl}/connect?session=${sessionId}`
+  const handleSetPreferred = (walletName: string) => {
+    setPreferredWallet(walletName)
+    toast({
+      title: "Preferred Wallet Set",
+      description: `${walletName} is now your preferred wallet`,
+    })
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-white/10 backdrop-blur-md border-white/20">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-white text-center">Connect Wallet</DialogTitle>
+          <DialogTitle>Connect Wallet</DialogTitle>
+          <DialogDescription>Choose your wallet to connect to the Reward NFT Platform</DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-2 mb-4">
-            <TabsTrigger value="browser">Browser Extension</TabsTrigger>
-            <TabsTrigger value="mobile">Mobile Wallet</TabsTrigger>
-          </TabsList>
+        <div className="space-y-4">
+          {/* Auto-connect setting */}
+          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+            <Label htmlFor="auto-connect" className="text-sm font-medium">
+              Auto-connect on page load
+            </Label>
+            <Switch id="auto-connect" checked={autoConnectEnabled} onCheckedChange={setAutoConnectEnabled} />
+          </div>
 
-          <TabsContent value="browser" className="space-y-4">
-            {availableWallets.map((wallet) => (
-              <Button
-                key={wallet.name}
-                variant="outline"
-                className="w-full justify-start gap-4 bg-white/5 border-white/20 hover:bg-white/10 text-white"
-                onClick={() => handleWalletSelect(wallet.name)}
-                disabled={connecting && selectedWallet === wallet.name}
-              >
-                <div className="relative h-6 w-6">
-                  <Image src={wallet.icon || "/placeholder.svg"} alt={wallet.name} fill className="object-contain" />
-                </div>
-                <span className="flex-1">{wallet.name}</span>
-                {connecting && selectedWallet === wallet.name ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : !wallet.installed ? (
-                  <span className="text-xs text-white/60">Install</span>
-                ) : null}
-              </Button>
+          {/* Wallet list */}
+          <div className="space-y-2">
+            {walletProviders.map((wallet) => (
+              <div key={wallet.name} className="relative">
+                <Button
+                  variant="outline"
+                  className={`w-full h-16 justify-between ${
+                    !wallet.installed ? "opacity-50" : ""
+                  } ${preferredWallet === wallet.name ? "ring-2 ring-primary" : ""}`}
+                  onClick={() => (wallet.installed ? handleConnect(wallet.name) : null)}
+                  disabled={!wallet.installed || connecting}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="relative h-8 w-8">
+                      <Image
+                        src={wallet.icon || "/placeholder.svg"}
+                        alt={wallet.displayName}
+                        fill
+                        className="object-contain"
+                      />
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium">{wallet.displayName}</span>
+                      {wallet.name === "awwallet" && <span className="text-xs text-primary">Recommended</span>}
+                      {!wallet.installed && <span className="text-xs text-muted-foreground">Not installed</span>}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    {/* Preferred wallet indicator */}
+                    {preferredWallet === wallet.name && <Star className="h-4 w-4 text-primary fill-current" />}
+
+                    {/* Set as preferred button */}
+                    {wallet.installed && preferredWallet !== wallet.name && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleSetPreferred(wallet.name)
+                        }}
+                        className="h-6 px-2 text-xs"
+                      >
+                        Set Default
+                      </Button>
+                    )}
+
+                    {/* Loading indicator */}
+                    {connecting && selectedWallet === wallet.name && <Loader2 className="h-5 w-5 animate-spin" />}
+                  </div>
+                </Button>
+              </div>
             ))}
+          </div>
 
-            {availableWallets.length === 0 && (
-              <div className="text-center text-white/60 p-4">
-                No wallet extensions detected. Please install a Solana wallet.
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="mobile" className="space-y-4">
-            {!showQrCode ? (
-              <>
+          {/* Install wallet message */}
+          {walletProviders.filter((w) => w.installed).length === 0 && (
+            <div className="text-center p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground mb-3">No supported wallets detected</p>
+              <div className="space-y-2">
                 <Button
                   variant="outline"
-                  className="w-full justify-start gap-4 bg-white/5 border-white/20 hover:bg-white/10 text-white h-16"
-                  onClick={() => handleWalletSelect("phantom")}
-                  disabled={connecting && selectedWallet === "phantom"}
+                  size="sm"
+                  onClick={() => window.open("https://awwallet.io", "_blank")}
+                  className="w-full"
                 >
-                  <div className="relative h-8 w-8">
-                    <Image src="/images/phantom-icon.png" alt="Phantom" fill className="object-contain" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div>Phantom</div>
-                    <div className="text-xs text-white/60">Open in Phantom app</div>
-                  </div>
-                  {connecting && selectedWallet === "phantom" ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Smartphone className="h-5 w-5" />
-                  )}
+                  Install AWWallet (Recommended)
                 </Button>
-
                 <Button
                   variant="outline"
-                  className="w-full justify-start gap-4 bg-white/5 border-white/20 hover:bg-white/10 text-white h-16"
-                  onClick={handleQrCodeToggle}
+                  size="sm"
+                  onClick={() => window.open("https://phantom.app", "_blank")}
+                  className="w-full"
                 >
-                  <div className="relative h-8 w-8 flex items-center justify-center">
-                    <QrCode className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div>Scan QR Code</div>
-                    <div className="text-xs text-white/60">Connect with any wallet app</div>
-                  </div>
-                </Button>
-              </>
-            ) : (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="bg-white p-4 rounded-lg">
-                  <Image
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getConnectionQrUrl())}`}
-                    alt="Connection QR Code"
-                    width={200}
-                    height={200}
-                  />
-                </div>
-                <p className="text-sm text-white/80 text-center">Scan this QR code with your wallet app to connect</p>
-                <Button variant="outline" onClick={handleQrCodeToggle}>
-                  Back to Options
+                  Install Phantom
                 </Button>
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+            </div>
+          )}
 
-        <div className="text-center text-white/60 text-sm">
-          New to Solana?{" "}
-          <a
-            href="https://solana.com/developers/guides/getstarted/setup-a-wallet"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:underline"
-          >
-            Learn more about wallets
-          </a>
+          {/* AWWallet priority note */}
+          <div className="text-xs text-muted-foreground text-center p-2 bg-primary/5 rounded">
+            💡 AWWallet is set as the default wallet and will auto-connect when available
+          </div>
         </div>
       </DialogContent>
     </Dialog>

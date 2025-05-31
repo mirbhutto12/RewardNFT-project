@@ -20,21 +20,33 @@ const config = {
     },
     extend: {
       colors: {
+        // Dark Theme Palette
+        "theme-dark-background": "hsl(var(--theme-dark-background))", // #121212
+        "theme-dark-surface": "hsl(var(--theme-dark-surface))", // #1E1E1E
+        "theme-dark-primary": "hsl(var(--theme-dark-primary))", // #BB86FC
+        "theme-dark-primary-hover": "hsl(var(--theme-dark-primary-hover))", // #A169E0
+        "theme-dark-secondary": "hsl(var(--theme-dark-secondary))", // #03DAC6
+        "theme-dark-text-primary": "hsl(var(--theme-dark-text-primary))", // #E0E0E0
+        "theme-dark-text-secondary": "hsl(var(--theme-dark-text-secondary))", // #A0A0A0
+        "theme-dark-border": "hsl(var(--theme-dark-border))", // #333333
+        "theme-dark-error": "hsl(var(--theme-dark-error))", // #CF6679
+
+        // Shadcn UI Dark Theme (ensure these align or are overridden)
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        background: "hsl(var(--background))", // This will be our theme-dark-background
+        foreground: "hsl(var(--foreground))", // This will be our theme-dark-text-primary
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "hsl(var(--primary))", // theme-dark-primary
+          foreground: "hsl(var(--primary-foreground))", // A contrasting color for text on primary, e.g., black or dark gray
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "hsl(var(--secondary))", // theme-dark-secondary
+          foreground: "hsl(var(--secondary-foreground))", // A contrasting color for text on secondary
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
+          DEFAULT: "hsl(var(--destructive))", // theme-dark-error
           foreground: "hsl(var(--destructive-foreground))",
         },
         muted: {
@@ -50,13 +62,9 @@ const config = {
           foreground: "hsl(var(--popover-foreground))",
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "hsl(var(--card))", // theme-dark-surface
+          foreground: "hsl(var(--card-foreground))", // theme-dark-text-primary
         },
-        // Custom theme colors
-        "theme-cyan": "#00FFE0",
-        "theme-yellow": "#FFC93C",
-        "theme-pink": "#FF2E63",
       },
       borderRadius: {
         lg: "var(--radius)",

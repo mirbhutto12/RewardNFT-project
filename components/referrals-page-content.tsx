@@ -159,8 +159,28 @@ export function ReferralsPageContent() {
                   <div className="space-y-4 pt-4">
                     <h2 className="text-5xl font-bold text-white">Quests</h2>
                     <p className="text-white/80 text-lg">Complete quests to earn more rewards</p>
-                    <Button asChild className="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg py-6 rounded-lg">
-                      <Link href="/quests">View Quests</Link>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Button
+                        asChild
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg py-6 rounded-lg"
+                      >
+                        <Link href="/quests">View All Quests</Link>
+                      </Button>
+
+                      <Button
+                        asChild
+                        className="w-full bg-green-500 hover:bg-green-600 text-white text-lg py-6 rounded-lg"
+                      >
+                        <Link href="/daily-gm">Daily GM Check-in</Link>
+                      </Button>
+                    </div>
+
+                    <Button
+                      asChild
+                      className="w-full bg-purple-500 hover:bg-purple-600 text-white text-lg py-6 rounded-lg"
+                    >
+                      <Link href="/post-mint-game">Post-Mint Game</Link>
                     </Button>
                   </div>
                 </div>
